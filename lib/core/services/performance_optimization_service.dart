@@ -107,9 +107,9 @@ class PerformanceOptimizationService {
 
   /// Execute function on background isolate untuk heavy computations
   static Future<T> executeInBackground<T>(
-    T Function(void) computation,
+    T Function() computation,
   ) async {
-    return await compute(computation, null);
+    return await compute((_) => computation(), null);
   }
 
   /// Cleanup expired cache entries
