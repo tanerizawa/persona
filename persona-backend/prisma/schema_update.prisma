@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// PRODUCTION-READY USER MANAGEMENT SCHEMA
+// Enhanced for 100-user deployment
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  
+  // Profile Information
+  displayName  String?  @map("display_name")
+  avatarUrl    String?  @map("avatar_url")
+  bio          String?
+  
+  // Account Status
+  emailVerified    Boolean @default(false) @map("email_verified")
+  verificationToken String? @map("verification_token")
+  accountStatus    String  @default("pending") @map("account_status") // active, suspended, pending
+  subscriptionTier String  @default("free") @map("subscription_tier") // free, premium
+  
+  // Usage Tracking & Quotas
+  apiQuotaDaily    Int @default(50) @map("api_quota_daily")
+  apiUsageToday    Int @default(0) @map("api_usage_today")
+  lastQuotaReset   DateTime @default(now()) @map("last_quota_reset")
+  
+  // Security
+  failedLoginAttempts Int @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+  lastLogin           DateTime? @map("last_login")
+  
+  // Metadata
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  sessions     UserSession[]
+  syncStatuses UserSyncStatus[]
+  backups      UserBackup[]
+  usageLogs    ApiUsageLog[]
+  securityEvents SecurityEvent[]
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+// Enhanced Session Management
+model UserSession {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  deviceId    String   @map("device_id")
+  deviceName  String?  @map("device_name")
+  deviceType  String?  @map("device_type") // android, ios, web
+  
+  // Session Security
+  accessTokenHash  String   @map("access_token_hash")
+  refreshTokenHash String   @map("refresh_token_hash")
+  expiresAt        DateTime @map("expires_at")
+  
+  // Tracking
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  lastActive   DateTime @default(now()) @map("last_active")
+  isActive     Boolean  @default(true) @map("is_active")
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId, deviceId])
+  @@index([accessTokenHash])
+  @@map("user_sessions")
+}
+
+// API Usage Tracking
+model ApiUsageLog {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  endpoint       String
+  model          String?  // Added field for AI model used
+  requestSize    Int?     @map("request_size")
+  responseSize   Int?     @map("response_size")
+  processingTime Int?     @map("processing_time") // milliseconds
+  tokensUsed     Int?     @map("tokens_used")
+  costCents      Int?     @map("cost_cents")
+  statusCode     Int?     @default(200) @map("status_code")
+  success        Boolean  @default(true)
+  errorMessage   String?  @map("error_message")
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([endpoint])
+  @@map("api_usage_logs")
+}
+
+// Security Event Logging
+model SecurityEvent {
+  id          String   @id @default(uuid())
+  userId      String?  @map("user_id")
+  eventType   String   @map("event_type")
+  severity    String   @default("medium") // low, medium, high, critical
+  description String
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  metadata    String?  // JSON string for additional data
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, eventType])
+  @@index([severity, createdAt])
+  @@map("security_events")
+}
+
+// Sync metadata
+model UserSyncStatus {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  deviceId          String   @map("device_id")
+  lastSyncTimestamp DateTime @default(now()) @map("last_sync_timestamp")
+  syncVersion       Int      @default(1) @map("sync_version")
+  dataHash          String?  @map("data_hash")
+  isActive          Boolean  @default(true) @map("is_active")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId, deviceId])
+  @@map("user_sync_status")
+}
+
+// AI Orchestration Scripts (Server-managed logic)
+model AiScript {
+  id            String   @id @default(uuid())
+  scriptName    String   @unique @map("script_name")
+  version       String
+  scriptContent String   @map("script_content") // Prompt templates, logic as JSON string
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([isActive])
+  @@map("ai_scripts")
+}
+
+// Encrypted backup (optional, for disaster recovery)
+model UserBackup {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  encryptedData String?  @map("encrypted_data") // AES encrypted Little Brain data
+  backupDate    DateTime @default(now()) @map("backup_date")
+  dataSize      Int?     @map("data_size")
+  checksum      String?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_backups")
+}
+
+// Chat System Models
+model Conversation {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String?  // Auto-generated from first message
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String   @map("conversation_id")
+  role           String   // 'user' or 'assistant'
+  content        String
+  metadata       Json?    // Store additional data like model used, tokens, etc.
+  createdAt      DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
