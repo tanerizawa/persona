@@ -21,6 +21,10 @@ export interface ApiResponse<T = any> {
 
 export interface JwtPayload {
   id: string;
+  /**
+   * Alias for `id` used by middleware and controllers for backward compatibility
+   */
+  userId: string;
   email: string;
   iat?: number;
   exp?: number;
@@ -66,12 +70,6 @@ export interface UserBackup {
   checksum?: string | null;
 }
 
-export interface JwtPayload {
-  userId: string;
-  email: string;
-  iat?: number;
-  exp?: number;
-}
 
 export interface LoginRequest {
   email: string;
