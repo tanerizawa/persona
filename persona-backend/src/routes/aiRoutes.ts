@@ -60,15 +60,6 @@ router.get('/scripts/:scriptName', authenticateToken, async (req: Request, res: 
   }
 });
 
-// Health check for AI services
-router.get('/health', async (_req: Request, res: Response): Promise<void> => {
-  res.status(200).json({
-    success: true,
-    message: 'AI services operational',
-    timestamp: new Date().toISOString()
-  });
-});
-
 // OpenRouter Chat Proxy Endpoint
 router.post('/chat', authenticateToken, aiLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

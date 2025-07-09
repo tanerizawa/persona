@@ -130,4 +130,40 @@ class BackendChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       throw ServerException('An unexpected error occurred: $e');
     }
   }
+
+  @override
+  Future<List<MessageModel>> syncConversationFromServer() async {
+    try {
+      final response = await _backendApiService.dio.get(
+        '${AppConstants.backendBaseUrl}/api/chat/sync',
+      );
+
+      final List<dynamic> messages = response.data['messages'] ?? [];
+      return messages.map((json) => MessageModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data?['error'] ?? 'Failed to sync conversation from server: ${e.message}',
+      );
+    } catch (e) {
+      throw ServerException('An unexpected error occurred during sync: $e');
+    }
+  }
+
+  @override
+  Future<void> syncConversationToServer(List<MessageModel> messages) async {
+    try {
+      await _backendApiService.dio.post(
+        '${AppConstants.backendBaseUrl}/api/chat/sync',
+        data: {
+          'messages': messages.map((m) => m.toJson()).toList(),
+        },
+      );
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data?['error'] ?? 'Failed to sync conversation to server: ${e.message}',
+      );
+    } catch (e) {
+      throw ServerException('An unexpected error occurred during sync: $e');
+    }
+  }
 }
