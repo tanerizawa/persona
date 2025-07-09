@@ -61,6 +61,10 @@ dependencies:
   hive_flutter: ^1.1.0
   shared_preferences: ^2.3.3
   
+  # TensorFlow Lite untuk Local AI
+  tflite_flutter: ^0.10.4
+  tflite_flutter_helper: ^0.3.1
+  
   # Utils
   intl: ^0.19.0
   uuid: ^4.5.1
@@ -127,6 +131,8 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/animations/
+    - assets/models/
+    - assets/vocab/
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

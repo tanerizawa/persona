@@ -38,6 +38,8 @@ import 'features/little_brain/data/services/background_sync_service.dart';
 import 'features/little_brain/data/services/minimal_sync_service.dart';
 import 'features/little_brain/data/repositories/little_brain_local_repository.dart';
 import 'features/little_brain/data/services/local_ai_service.dart';
+import 'features/little_brain/data/services/tflite_local_ai_service.dart';
+import 'features/little_brain/data/services/growing_brain_service.dart';
 import 'features/little_brain/domain/usecases/little_brain_local_usecases.dart';
 import 'features/home/domain/usecases/home_content_usecases.dart';
 import 'features/home/domain/usecases/smart_content_manager.dart';
@@ -160,6 +162,16 @@ Future<void> configureDependencies() async {
   // Register Little Brain services
   getIt.registerLazySingleton<LocalAIService>(
     () => LocalAIService(),
+  );
+  
+  // Register Enhanced TFLite Local AI Service
+  getIt.registerLazySingleton<TFLiteLocalAIService>(
+    () => TFLiteLocalAIService(),
+  );
+  
+  // Register Growing Brain Service
+  getIt.registerLazySingleton<GrowingBrainService>(
+    () => GrowingBrainService(),
   );
   
   getIt.registerLazySingleton<LittleBrainLocalRepository>(
