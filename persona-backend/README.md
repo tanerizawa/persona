@@ -1,6 +1,6 @@
-# Persona AI Backend
+# Persona Backend
 
-Ultra-lightweight server untuk Persona AI Assistant dengan arsitektur local-first. Backend ini dirancang minimal untuk mendukung sinkronisasi dan orkestrasi AI, sementara semua data utama disimpan di perangkat klien.
+Ultra-lightweight server untuk Persona Assistant dengan arsitektur local-first. Backend ini dirancang minimal untuk mendukung sinkronisasi dan orkestrasi AI, sementara semua data utama disimpan di perangkat klien.
 
 ## 🏗️ Arsitektur
 
@@ -199,7 +199,7 @@ curl http://localhost:3000/health
 ```json
 {
   "status": "OK",
-  "message": "Persona AI Backend - Ultra-lightweight server",
+  "message": "Persona Backend - Ultra-lightweight server",
   "timestamp": "2025-01-08T10:00:00.000Z",
   "uptime": 3600
 }
@@ -244,7 +244,7 @@ curl http://localhost:3000/health
 
 ## 📱 Flutter Integration
 
-Backend ini dirancang khusus untuk mengintegrasikan dengan Persona AI Flutter app:
+Backend ini dirancang khusus untuk mengintegrasikan dengan Persona Flutter app:
 
 - **Local-first Architecture**: Flutter app bekerja offline, server hanya untuk sync
 - **Minimal Data Transfer**: Hanya metadata yang disinkronisasi
@@ -283,4 +283,4 @@ MIT License - lihat [LICENSE](LICENSE) file untuk detail.
 
 ---
 
-**Dibuat dengan ❤️ untuk Persona AI Assistant**
+**Dibuat dengan ❤️ untuk Persona Assistant**

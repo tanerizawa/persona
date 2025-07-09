@@ -43,3 +43,12 @@ class ChatError extends ChatState {
   @override
   List<Object> get props => [message];
 }
+
+class ChatSyncing extends ChatState {
+  final String message;
+
+  const ChatSyncing({this.message = 'Sinkronisasi data chat...'});
+
+  @override
+  List<Object> get props => [message];
+}

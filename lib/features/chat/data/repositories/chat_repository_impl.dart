@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
@@ -6,6 +8,7 @@ import '../../../../core/errors/failures.dart';
 import '../../domain/entities/message.dart';
 import '../../domain/repositories/chat_repository.dart';
 import '../../domain/services/chat_personality_service.dart';
+import '../../domain/services/chat_message_optimizer.dart';
 import '../datasources/chat_local_datasource.dart';
 import '../datasources/chat_remote_datasource.dart';
 import '../models/message_model.dart';
@@ -16,14 +19,17 @@ class ChatRepositoryImpl implements ChatRepository {
   final ChatRemoteDataSource remoteDataSource;
   final ChatLocalDataSource localDataSource;
   final ChatPersonalityService _personalityService;
+  final ChatMessageOptimizer _messageOptimizer;
   final AddMemoryLocalUseCase _addMemoryUseCase;
 
   ChatRepositoryImpl({
     required this.remoteDataSource,
     required this.localDataSource,
     required ChatPersonalityService personalityService,
+    required ChatMessageOptimizer messageOptimizer,
     required AddMemoryLocalUseCase addMemoryUseCase,
   }) : _personalityService = personalityService,
+       _messageOptimizer = messageOptimizer,
        _addMemoryUseCase = addMemoryUseCase;
 
   @override
@@ -35,15 +41,18 @@ class ChatRepositoryImpl implements ChatRepository {
       // Check for crisis before sending
       final crisisLevel = await _personalityService.detectCrisis(message);
       
-      // Get personality context for enhanced responses
-      final personalityContext = await _personalityService.buildPersonalityContext();
+      // Use smart prompt builder for efficient context
+      final smartPrompt = await _personalityService.buildSmartPersonalityContext(
+        message, 
+        conversationId: 'chat_${DateTime.now().millisecondsSinceEpoch}'
+      );
       
-      // Add personality context to the conversation for better AI responses
+      // Create minimal enhanced history with smart prompt
       final enhancedHistory = [...conversationHistory];
-      if (personalityContext.isNotEmpty) {
+      if (smartPrompt.isNotEmpty) {
         final contextMessage = MessageModel(
           id: const Uuid().v4(),
-          content: personalityContext,
+          content: smartPrompt,
           role: MessageRole.system,
           timestamp: DateTime.now(),
         );
@@ -66,6 +75,20 @@ class ChatRepositoryImpl implements ChatRepository {
         enhancedHistory.map((m) => MessageModel.fromEntity(m)).toList(),
       );
       
+      // Optimize AI response for better bubble display
+      final optimizedBubbles = _messageOptimizer.optimizeAIResponse(response.content);
+      
+      // For iMessage style: join bubbles with <span> separator (matches prompt instructions)
+      final optimizedContent = optimizedBubbles.join(' <span> ');
+      
+      // Create optimized response
+      final optimizedResponse = MessageModel(
+        id: response.id,
+        content: optimizedContent,
+        role: response.role,
+        timestamp: response.timestamp,
+      );
+      
       // Save the conversation locally
       final userMessage = MessageModel(
         id: const Uuid().v4(),
@@ -74,15 +97,15 @@ class ChatRepositoryImpl implements ChatRepository {
         timestamp: DateTime.now(),
       );
       
-      final updatedHistory = [...conversationHistory, userMessage, response];
+      final updatedHistory = [...conversationHistory, userMessage, optimizedResponse];
       await localDataSource.saveConversation(
         updatedHistory.map((m) => m is MessageModel ? m : MessageModel.fromEntity(m)).toList(),
       );
       
-      // Capture memories from the conversation including crisis detection
-      await _captureMemoriesFromChat(message, response.content);
+      // Capture memories from the conversation (async, fire-and-forget)
+      _captureMemoriesFromChat(message, optimizedResponse.content).ignore();
       
-      return Right(response);
+      return Right(optimizedResponse);
     } on ServerException {
       return const Left(ServerFailure('Failed to send message'));
     } on CacheException {
@@ -90,44 +113,35 @@ class ChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  // Private method to capture memories from chat interactions
+  // Optimized memory capture: more selective and efficient
   Future<void> _captureMemoriesFromChat(String userMessage, String aiResponse) async {
     try {
-      // Capture user message as memory if it contains meaningful information
-      if (userMessage.length > 20) { // Basic filter for meaningful content
-        await _addMemoryUseCase.call(
+      // More stringent filters to reduce unnecessary captures
+      if (userMessage.length < 15 || aiResponse.length < 30) return;
+      
+      // Skip capturing for simple acknowledgments or short responses
+      final skipPatterns = ['ok', 'ya', 'oke', 'thanks', 'terima kasih'];
+      if (skipPatterns.any((pattern) => userMessage.toLowerCase().contains(pattern))) {
+        return;
+      }
+      
+      // Only capture truly meaningful conversations
+      if (userMessage.length > 30 && !userMessage.toLowerCase().startsWith('hai')) {
+        // Fire and forget - don't await to avoid blocking chat
+        _addMemoryUseCase.call(
           userMessage,
           'chat_user',
           metadata: {
             'type': 'user_input',
             'timestamp': DateTime.now().toIso8601String(),
-            'ai_response_preview': aiResponse.length > 100 
-              ? '${aiResponse.substring(0, 100)}...' 
-              : aiResponse,
-            'personality_enhanced': 'true', // Indicates this chat used personality context
+            'length': userMessage.length,
           },
-        );
-      }
-      
-      // Capture AI insights if the response contains valuable information
-      if (aiResponse.length > 50) {
-        await _addMemoryUseCase.call(
-          aiResponse,
-          'chat_ai',
-          metadata: {
-            'type': 'ai_insight',
-            'timestamp': DateTime.now().toIso8601String(),
-            'user_query': userMessage.length > 100 
-              ? '${userMessage.substring(0, 100)}...' 
-              : userMessage,
-            'personality_enhanced': 'true', // Indicates this response used personality context
-          },
-        );
+        ).catchError((_) {
+          // Silently ignore memory errors
+        });
       }
     } catch (e) {
-      // Log error but don't fail the chat operation
-      // ignore: avoid_print
-      print('Error capturing memories from chat: $e');
+      // Silently fail - memory capture should never block chat
     }
   }
 

@@ -5,6 +5,8 @@ import 'package:injectable/injectable.dart';
 import '../../../core/services/backend_api_service.dart';
 import '../../../core/services/secure_storage_service.dart';
 import '../../../core/services/biometric_auth_service.dart';
+import '../../../core/services/user_session_service.dart';
+import '../domain/usecases/clear_user_data_usecase.dart';
 
 part 'auth_event.dart';
 part 'auth_state.dart';
@@ -14,11 +16,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final BackendApiService _apiService;
   final SecureStorageService _secureStorage;
   final BiometricAuthService _biometricAuth;
+  final ClearUserDataUseCase _clearUserData;
+  final UserSessionService _userSessionService;
 
   AuthBloc(
     this._apiService,
     this._secureStorage,
     this._biometricAuth,
+    this._clearUserData,
+    this._userSessionService,
   ) : super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onAuthLoginRequested);
@@ -83,6 +89,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         // Generate session token for secure local access
         await _biometricAuth.generateSessionToken(authResponse.user!.id);
         
+        // Update user session service to detect user changes
+        await _userSessionService.updateCurrentUser();
+        
         emit(AuthAuthenticated(user: authResponse.user!.toUserProfile()));
       } else {
         emit(AuthError(message: 'Login failed: Invalid response'));
@@ -111,6 +120,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         // Generate session token for secure local access
         await _biometricAuth.generateSessionToken(authResponse.user!.id);
         
+        // Update user session service to detect user changes
+        await _userSessionService.updateCurrentUser();
+        
         emit(AuthAuthenticated(user: authResponse.user!.toUserProfile()));
       } else {
         emit(AuthError(message: 'Registration failed: Invalid response'));
@@ -129,12 +141,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       emit(AuthLoading());
       
-      await _apiService.logout();
+      // Use comprehensive user data clearing
+      await _clearUserData.call();
+      
+      // Try to logout from server (but don't fail if it doesn't work)
+      try {
+        await _apiService.logout();
+      } catch (e) {
+        // Server logout failed, but local data is already cleared
+        print('⚠️ Server logout failed (local data already cleared): $e');
+      }
+      
+      // Update user session service to detect user changes
+      await _userSessionService.updateCurrentUser();
+      
       emit(AuthUnauthenticated());
     } catch (e) {
-      // Even if logout fails on server, clear local data
-      await _secureStorage.clearAuthData();
-      await _biometricAuth.clearSession();
+      // Fallback: manual cleanup if use case fails
+      try {
+        await _secureStorage.clearAuthData();
+        await _biometricAuth.clearSession();
+      } catch (fallbackError) {
+        print('❌ Fallback cleanup failed: $fallbackError');
+      }
       emit(AuthUnauthenticated());
     }
   }

@@ -5,12 +5,19 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:io';
 
+import 'logging_service.dart';
+
 /// Service untuk mengelola penyimpanan data sensitif dengan enkripsi
 class SecureStorageService {
   static SecureStorageService? _instance;
   static SecureStorageService get instance => _instance ??= SecureStorageService._();
   
   SecureStorageService._();
+  
+  final LoggingService _logger = LoggingService();
+  
+  // Cache untuk device ID
+  static String? _cachedDeviceId;
   
   // Konfigurasi Secure Storage
   static const AndroidOptions _androidOptions = AndroidOptions(
@@ -37,13 +44,25 @@ class SecureStorageService {
   static const String _encryptionKeyKey = 'encryption_key';
   static const String _biometricEnabledKey = 'biometric_enabled';
   
-  /// Generate unique device ID
+  /// Generate unique device ID with caching
   Future<String> getOrCreateDeviceId() async {
+    // Return cached device ID if available
+    if (_cachedDeviceId != null) {
+      _logger.debug('🔧 Using cached device ID: $_cachedDeviceId');
+      return _cachedDeviceId!;
+    }
+    
     String? deviceId = await _storage.read(key: _deviceIdKey);
     if (deviceId?.isEmpty ?? true) {
-      deviceId = await _generateDeviceId();
+      deviceId = await _generateStableDeviceId();
       await _storage.write(key: _deviceIdKey, value: deviceId);
+      _logger.info('🔧 Generated new device ID: $deviceId');
+    } else {
+      _logger.info('🔧 Using existing device ID: $deviceId');
     }
+    
+    // Cache the device ID for future use
+    _cachedDeviceId = deviceId;
     return deviceId!;
   }
   
@@ -189,32 +208,60 @@ class SecureStorageService {
     return token != null && token.isNotEmpty && userId != null && userId.isNotEmpty;
   }
   
+  /// Clear device ID for testing purposes
+  Future<void> clearDeviceId() async {
+    await _storage.delete(key: _deviceIdKey);
+    _logger.info('🔧 Device ID cleared');
+  }
+
+  /// Debug method to show current device ID
+  Future<void> debugDeviceId() async {
+    final deviceId = await _storage.read(key: _deviceIdKey);
+    _logger.info('🔧 Current stored device ID: $deviceId');
+    final newDeviceId = await getOrCreateDeviceId();
+    _logger.info('🔧 Device ID after getOrCreate: $newDeviceId');
+  }
+
   // Private methods
-  Future<String> _generateDeviceId() async {
+  Future<String> _generateStableDeviceId() async {
     try {
       final deviceInfo = DeviceInfoPlugin();
-      String deviceId;
+      String deviceIdentifier;
       
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
-        deviceId = '${androidInfo.id}_${androidInfo.model}_${androidInfo.device}';
+        // Use more stable identifiers for Android
+        // Combine multiple fields for better stability
+        final identifierParts = [
+          androidInfo.model,
+          androidInfo.manufacturer, 
+          androidInfo.device,
+          androidInfo.display,
+          androidInfo.hardware,
+        ];
+        deviceIdentifier = identifierParts.join('_');
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
-        deviceId = '${iosInfo.identifierForVendor}_${iosInfo.model}';
+        // iOS identifierForVendor is stable per app install
+        deviceIdentifier = '${iosInfo.identifierForVendor}_${iosInfo.model}';
       } else {
-        // Fallback untuk platform lain
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        deviceId = 'device_$timestamp';
+        // Fallback for other platforms - use a consistent string
+        deviceIdentifier = 'persona_app_device_fallback';
       }
       
-      // Hash untuk privasi dan konsistensi
-      final bytes = utf8.encode(deviceId);
-      return sha256.convert(bytes).toString().substring(0, 32);
+      // Hash the identifier for privacy and to get consistent length
+      final bytes = utf8.encode(deviceIdentifier);
+      final hash = sha256.convert(bytes).toString();
+      
+      _logger.info('🔧 Device identifier base: ${deviceIdentifier.substring(0, 20)}...');
+      _logger.info('🔧 Generated hash: ${hash.substring(0, 16)}...');
+      
+      return hash.substring(0, 32);
     } catch (e) {
-      // Fallback jika device info gagal
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final random = List.generate(16, (index) => timestamp + index);
-      final bytes = Uint8List.fromList(random.map((e) => e % 256).toList());
+      _logger.warning('⚠️ Device info failed, using fallback: $e');
+      // More stable fallback - same hash every time for this app
+      final fallbackString = 'persona_ai_assistant_stable_fallback';
+      final bytes = utf8.encode(fallbackString);
       return sha256.convert(bytes).toString().substring(0, 32);
     }
   }

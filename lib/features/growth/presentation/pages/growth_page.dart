@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/injection/injection.dart';
+import '../../../../../injection_container.dart';
 import '../../domain/usecases/mood_tracking_usecases.dart';
 import '../../domain/entities/mood_entities.dart';
 import '../widgets/mood_calendar_widget.dart';

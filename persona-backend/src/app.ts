@@ -8,6 +8,8 @@ import aiRoutes from './routes/aiRoutes';
 import syncRoutes from './routes/syncRoutes';
 import crisisRoutes from './routes/crisisRoutes';
 import { notificationRoutes } from './routes/notificationRoutes';
+import testRoutes from './routes/testRoutes';
+import configRoutes from './routes/configRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +52,8 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/crisis', crisisRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/config', configRoutes);
+app.use('/api/test', testRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -74,7 +78,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Persona AI Backend Server running on port ${PORT}`);
+  console.log(`🚀 Persona Backend Server running on port ${PORT}`);
   console.log(`📊 Health check available at http://localhost:${PORT}/health`);
   console.log(`🔐 Authentication API at http://localhost:${PORT}/api/auth`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

@@ -3,6 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'secure_storage_service.dart';
 import 'backend_api_service.dart';
+import 'logging_service.dart';
 
 
 /// Service untuk autentikasi biometrik dan manajemen session
@@ -14,6 +15,7 @@ class BiometricAuthService {
   
   final LocalAuthentication _localAuth = LocalAuthentication();
   final SecureStorageService _storage = SecureStorageService.instance;
+  final LoggingService _logger = LoggingService();
   
   // Keys untuk session management
   static const String _sessionTokenKey = 'session_token';
@@ -50,7 +52,7 @@ class BiometricAuthService {
       
       // Authenticate with biometric to setup
       final isAuthenticated = await _localAuth.authenticate(
-        localizedReason: 'Setup biometric authentication for Persona AI',
+        localizedReason: 'Setup biometric authentication for Persona',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
@@ -75,7 +77,7 @@ class BiometricAuthService {
           } catch (e) {
             // If backend setup fails, still allow local biometric setup
             // This provides fallback for offline scenarios
-            print('Backend biometric setup failed: $e');
+            _logger.warning('Backend biometric setup failed', e);
           }
         }
         
@@ -96,7 +98,7 @@ class BiometricAuthService {
       }
       
       final isAuthenticated = await _localAuth.authenticate(
-        localizedReason: 'Authenticate to access Persona AI',
+        localizedReason: 'Authenticate to access Persona',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
@@ -121,7 +123,7 @@ class BiometricAuthService {
             }
           } catch (e) {
             // If backend verification fails, fallback to local verification
-            print('Backend biometric verification failed: $e');
+            _logger.warning('Backend biometric verification failed: $e');
           }
         }
         
@@ -146,7 +148,7 @@ class BiometricAuthService {
         await backendApi.disableBiometric(deviceId: deviceId);
       } catch (e) {
         // Log error but don't throw - local disable should still work
-        print('Backend biometric disable failed: $e');
+        _logger.error('Backend biometric disable failed: $e');
       }
     }
   }

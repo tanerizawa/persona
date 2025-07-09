@@ -2,6 +2,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../constants/app_constants.dart';
 import '../utils/api_key_helper.dart';
+import '../services/logging_service.dart';
 
 class EnvironmentConfig {
   // API Configuration
@@ -56,33 +57,36 @@ class EnvironmentConfig {
   }
   
   static void validateConfiguration() {
+    // Create a basic logger since we can't use dependency injection here
+    final logger = LoggingService();
+    
     // Validate API key on app startup
     try {
       if (isApiKeyConfigured) {
-        print('✅ OpenRouter API key configured successfully');
+        logger.info('✅ OpenRouter API key configured successfully');
       } else {
-        print('⚠️ OpenRouter API key needs configuration');
+        logger.warning('⚠️ OpenRouter API key needs configuration');
         ApiKeyHelper.logApiKeyError();
       }
       
       // Validate other critical configuration
       if (AppConstants.backendBaseUrl.isEmpty) {
-        print('⚠️ Backend base URL is not configured');
+        logger.warning('⚠️ Backend base URL is not configured');
       } else {
-        print('✅ Backend base URL: ${AppConstants.backendBaseUrl}');
+        logger.info('✅ Backend base URL: ${AppConstants.backendBaseUrl}');
       }
       
-      print('✅ Environment: ${AppConstants.environment}');
-      print('✅ Default AI Model: ${AppConstants.defaultAiModel}');
+      logger.info('✅ Environment: ${AppConstants.environment}');
+      logger.info('✅ Default AI Model: ${AppConstants.defaultAiModel}');
       
       // Log feature flags
-      print('ℹ️ Feature Flags:');
-      print('  - Push Notifications: ${AppConstants.enablePushNotifications}');
-      print('  - Biometric Auth: ${AppConstants.enableBiometricAuth}');
-      print('  - Crisis Intervention: ${AppConstants.enableCrisisIntervention}');
-      print('  - Background Sync: ${AppConstants.enableBackgroundSync}');
+      logger.info('ℹ️ Feature Flags:');
+      logger.info('  - Push Notifications: ${AppConstants.enablePushNotifications}');
+      logger.info('  - Biometric Auth: ${AppConstants.enableBiometricAuth}');
+      logger.info('  - Crisis Intervention: ${AppConstants.enableCrisisIntervention}');
+      logger.info('  - Background Sync: ${AppConstants.enableBackgroundSync}');
     } catch (e) {
-      print('❌ Environment configuration error: $e');
+      logger.error('❌ Environment configuration error', e);
     }
   }
 }

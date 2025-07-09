@@ -13,6 +13,7 @@ MessageModel _$MessageModelFromJson(Map<String, dynamic> json) => MessageModel(
       timestamp: DateTime.parse(json['timestamp'] as String),
       isLoading: json['isLoading'] as bool? ?? false,
       conversationId: json['conversationId'] as String?,
+      userId: json['userId'] as String?,
     );
 
 Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
@@ -23,6 +24,7 @@ Map<String, dynamic> _$MessageModelToJson(MessageModel instance) =>
       'timestamp': instance.timestamp.toIso8601String(),
       'isLoading': instance.isLoading,
       'conversationId': instance.conversationId,
+      'userId': instance.userId,
     };
 
 const _$MessageRoleEnumMap = {

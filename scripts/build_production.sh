@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# 🚀 PERSONA AI - PRODUCTION BUILD SCRIPT
+# 🚀 Persona - PRODUCTION BUILD SCRIPT
 # Script untuk build aplikasi Android yang siap production
 
 set -e  # Exit on any error
 
-echo "🚀 Starting Persona AI Production Build..."
+echo "🚀 Starting Persona Production Build..."
 echo "========================================"
 
 # Colors for output
@@ -150,7 +150,7 @@ BUILD_DATE=$(date "+%Y-%m-%d %H:%M:%S")
 BUILD_REPORT="build_report_$(date +%Y%m%d_%H%M%S).txt"
 
 cat > "$BUILD_REPORT" << EOF
-PERSONA AI - BUILD REPORT
+Persona - BUILD REPORT
 ========================
 Build Date: $BUILD_DATE
 Build Type: $BUILD_TYPE

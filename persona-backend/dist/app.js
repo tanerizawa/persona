@@ -14,6 +14,8 @@ const aiRoutes_1 = __importDefault(require("./routes/aiRoutes"));
 const syncRoutes_1 = __importDefault(require("./routes/syncRoutes"));
 const crisisRoutes_1 = __importDefault(require("./routes/crisisRoutes"));
 const notificationRoutes_1 = require("./routes/notificationRoutes");
+const testRoutes_1 = __importDefault(require("./routes/testRoutes"));
+const configRoutes_1 = __importDefault(require("./routes/configRoutes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 // Security middleware
@@ -50,6 +52,8 @@ app.use('/api/ai', aiRoutes_1.default);
 app.use('/api/sync', syncRoutes_1.default);
 app.use('/api/crisis', crisisRoutes_1.default);
 app.use('/api/notifications', notificationRoutes_1.notificationRoutes);
+app.use('/api/config', configRoutes_1.default);
+app.use('/api/test', testRoutes_1.default);
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({
@@ -65,7 +69,7 @@ app.use((err, req, res, next) => {
 });
 // Start server
 app.listen(PORT, () => {
-    console.log(`🚀 Persona AI Backend Server running on port ${PORT}`);
+    console.log(`🚀 Persona Backend Server running on port ${PORT}`);
     console.log(`📊 Health check available at http://localhost:${PORT}/health`);
     console.log(`🔐 Authentication API at http://localhost:${PORT}/api/auth`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

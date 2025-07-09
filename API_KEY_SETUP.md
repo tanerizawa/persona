@@ -2,7 +2,7 @@
 
 ## ⚠️ API Key Required for AI Features
 
-Persona AI Assistant uses OpenRouter API untuk fitur-fitur AI seperti chat assistant dan content generation. Untuk menggunakan fitur-fitur ini, Anda perlu mengkonfigurasi API key.
+Persona Assistant uses OpenRouter API untuk fitur-fitur AI seperti chat assistant dan content generation. Untuk menggunakan fitur-fitur ini, Anda perlu mengkonfigurasi API key.
 
 ## 📋 Step-by-Step Setup
 
@@ -11,7 +11,7 @@ Persona AI Assistant uses OpenRouter API untuk fitur-fitur AI seperti chat assis
 1. Kunjungi [https://openrouter.ai/keys](https://openrouter.ai/keys)
 2. Daftar atau login ke akun Anda
 3. Klik "Create Key" untuk membuat API key baru
-4. Beri nama key (contoh: "Persona AI Development")
+4. Beri nama key (contoh: "Persona Development")
 5. Copy API key yang dimulai dengan `sk-or-v1-...`
 
 ### 2. **Update Konfigurasi App**
@@ -148,7 +148,7 @@ static String get openRouterApiKey {
 - [OpenRouter API Docs](https://openrouter.ai/docs)
 - [OpenRouter Dashboard](https://openrouter.ai/activity)
 - [OpenRouter Models](https://openrouter.ai/models)
-- [Persona AI GitHub Issues](https://github.com/your-repo/issues)
+- [Persona GitHub Issues](https://github.com/your-repo/issues)
 
 ---
 

@@ -1,6 +1,6 @@
 # Firebase Push Notifications Setup (Optional)
 
-Push notifications are **optional** in Persona AI Assistant and are disabled by default. If you want to enable push notifications, follow this guide.
+Push notifications are **optional** in Persona Assistant and are disabled by default. If you want to enable push notifications, follow this guide.
 
 ## Current Status
 

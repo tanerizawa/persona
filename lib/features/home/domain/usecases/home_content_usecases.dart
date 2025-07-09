@@ -1,5 +1,6 @@
 import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:async';
 
 import '../entities/home_content_entities.dart';
 import '../../../little_brain/domain/repositories/little_brain_repository.dart';
@@ -7,6 +8,9 @@ import '../../../growth/domain/usecases/mood_tracking_usecases.dart';
 import '../../../psychology/domain/usecases/psychology_testing_usecases.dart';
 import '../../../../core/api/openrouter_api_service.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/logging_service.dart';
+import '../../../../core/services/performance_service.dart';
+import '../../../../core/services/performance_monitor.dart';
 
 @injectable
 class HomeContentUseCases {
@@ -15,6 +19,13 @@ class HomeContentUseCases {
   final PsychologyTestingUseCases _psychologyTesting;
   final OpenRouterApiService _openRouterService;
   final Uuid _uuid = const Uuid();
+  final LoggingService _logger = LoggingService();
+  final PerformanceService _performanceService = PerformanceService();
+  final PerformanceMonitor _performanceMonitor = PerformanceMonitor();
+
+  // Prevent multiple concurrent content generation attempts
+  bool _isGenerating = false;
+  Completer<List<AIContent>>? _generationCompleter;
 
   HomeContentUseCases(
     this._littleBrainRepository,
@@ -25,32 +36,90 @@ class HomeContentUseCases {
 
   /// Generate personalized content for home dashboard
   Future<List<AIContent>> generatePersonalizedContent() async {
-    try {
-      // 1. Build personalization context from Little Brain data
-      final context = await _buildPersonalizationContext();
-      
-      // 2. Generate different types of content
-      final futures = await Future.wait([
-        _generateMusicRecommendations(context),
-        _generateArticleRecommendations(context),
-        _generateDailyQuote(context),
-        _generateJournalPrompt(context),
-      ]);
-
-      // 3. Combine and sort by relevance
-      final allContent = <AIContent>[];
-      for (final contentList in futures) {
-        allContent.addAll(contentList);
+    // If already generating, wait for the current generation to complete
+    if (_isGenerating) {
+      if (_generationCompleter != null) {
+        return await _generationCompleter!.future;
       }
-
-      // Sort by relevance score (highest first)
-      allContent.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
-      
-      return allContent;
-    } catch (e) {
-      // Return fallback content on error
       return _getFallbackContent();
     }
+
+    // Start generating
+    _isGenerating = true;
+    _generationCompleter = Completer<List<AIContent>>();
+
+    try {
+      final result = await _generateContentInternal();
+      _generationCompleter!.complete(result);
+      return result;
+    } catch (e) {
+      final fallback = _getFallbackContent();
+      _generationCompleter!.complete(fallback);
+      return fallback;
+    } finally {
+      _isGenerating = false;
+      _generationCompleter = null;
+    }
+  }
+
+  /// Internal method to generate content
+  Future<List<AIContent>> _generateContentInternal() async {
+    return await _performanceService.executeWithTracking(
+      'generate_personalized_content',
+      () async {
+        final stopwatch = Stopwatch()..start();
+        
+        try {
+          // 1. Build personalization context from Little Brain data
+          final context = await _buildPersonalizationContext();
+          
+          // 2. Generate different types of content using batch operations
+          final allContent = <AIContent>[];
+          
+          // Generate content with performance tracking
+          try {
+            final musicRecommendations = await _generateMusicRecommendations(context);
+            allContent.addAll(musicRecommendations);
+          } catch (e) {
+            _logger.error('Failed to generate music recommendations: $e');
+          }
+          
+          try {
+            final articleRecommendations = await _generateArticleRecommendations(context);
+            allContent.addAll(articleRecommendations);
+          } catch (e) {
+            _logger.error('Failed to generate article recommendations: $e');
+          }
+          
+          try {
+            final dailyQuote = await _generateDailyQuote(context);
+            allContent.addAll(dailyQuote);
+          } catch (e) {
+            _logger.error('Failed to generate daily quote: $e');
+          }
+          
+          try {
+            final journalPrompt = await _generateJournalPrompt(context);
+            allContent.addAll(journalPrompt);
+          } catch (e) {
+            _logger.error('Failed to generate journal prompt: $e');
+          }
+
+          // 3. Sort by relevance score (highest first)
+          allContent.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
+          
+          stopwatch.stop();
+          _performanceMonitor.trackOperation('content_generation_total', stopwatch.elapsedMilliseconds);
+          
+          return allContent;
+        } catch (e) {
+          stopwatch.stop();
+          _logger.error('Content generation failed after ${stopwatch.elapsedMilliseconds}ms: $e');
+          // Return fallback content on error
+          return _getFallbackContent();
+        }
+      },
+    );
   }
 
   /// Build personalization context from user data

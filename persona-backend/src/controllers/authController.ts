@@ -159,7 +159,7 @@ export class AuthController {
   async logout(req: Request, res: Response): Promise<void> {
     try {
       const userId = (req as any).user?.userId;
-      const deviceId = req.headers['x-device-id'] as string;
+      const deviceId = req.headers['x-device-id'] as string || req.body?.deviceId;
       
       if (userId && deviceId) {
         await ProductionAuthService.logout(userId, deviceId);
@@ -181,7 +181,7 @@ export class AuthController {
 
   async refreshToken(req: Request, res: Response): Promise<void> {
     try {
-      const { refreshToken } = req.body;
+      const { refreshToken, deviceId } = req.body;
 
       if (!refreshToken) {
         res.status(400).json({
@@ -192,7 +192,7 @@ export class AuthController {
         return;
       }
 
-      const result = await ProductionAuthService.refreshToken(refreshToken);
+      const result = await ProductionAuthService.refreshToken(refreshToken, deviceId);
 
       res.json({
         success: true,
@@ -391,6 +391,34 @@ export class AuthController {
       res.status(500).json({
         success: false,
         error: 'Disable biometric failed',
+        message: 'Internal server error'
+      });
+    }
+  }
+
+  async cleanupSessions(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'User not authenticated',
+          message: 'Authentication required'
+        });
+        return;
+      }
+
+      await ProductionAuthService.cleanupUserSessions(userId);
+
+      res.json({
+        success: true,
+        message: 'Old sessions cleaned up successfully'
+      });
+    } catch (error: any) {
+      console.error('Cleanup sessions error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Session cleanup failed',
         message: 'Internal server error'
       });
     }

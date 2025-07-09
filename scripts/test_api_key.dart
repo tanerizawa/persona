@@ -50,7 +50,7 @@ void main() async {
         headers: {
           'Authorization': 'Bearer $apiKey',
           'HTTP-Referer': 'https://persona-ai.app',
-          'X-Title': 'Persona AI Assistant',
+          'X-Title': 'Persona Assistant',
         },
       ),
     );

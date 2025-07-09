@@ -19,3 +19,14 @@ class ChatMessageSent extends ChatEvent {
 }
 
 class ChatHistoryCleared extends ChatEvent {}
+
+class ChatUserSwitched extends ChatEvent {
+  final String userId;
+
+  const ChatUserSwitched(this.userId);
+
+  @override
+  List<Object> get props => [userId];
+}
+
+class ChatSyncRequested extends ChatEvent {}

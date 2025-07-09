@@ -28,7 +28,7 @@ class ChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       final messages = [
         ChatMessage(
           role: 'system',
-          content: 'You are Persona, a helpful AI assistant that understands and adapts to user personalities. Be empathetic, supportive, and provide personalized responses.',
+          content: 'You are Persona, a helpful Assistant that understands and adapts to user personalities. Be empathetic, supportive, and provide personalized responses.',
         ),
         ...conversationHistory.map((msg) => ChatMessage(
           role: _roleToString(msg.role),
@@ -136,5 +136,19 @@ Would you like to explore any of these features?''';
       case MessageRole.system:
         return 'system';
     }
+  }
+
+  @override
+  Future<List<MessageModel>> syncConversationFromServer() async {
+    // TODO: Implement actual sync from backend
+    // For now, return empty list
+    return <MessageModel>[];
+  }
+
+  @override
+  Future<void> syncConversationToServer(List<MessageModel> messages) async {
+    // TODO: Implement actual sync to backend
+    // For now, do nothing
+    return;
   }
 }

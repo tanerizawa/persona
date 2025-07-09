@@ -1,7 +1,7 @@
 {
   "name": "persona-backend",
   "version": "1.0.0",
-  "description": "Ultra-lightweight server for Persona AI Assistant - Local-first architecture",
+  "description": "Ultra-lightweight server for Persona Assistant - Local-first architecture",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -23,7 +23,7 @@
     "minimal-server",
     "sync"
   ],
-  "author": "Persona AI Team",
+  "author": "Persona Team",
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.11.1",

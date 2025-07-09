@@ -12,6 +12,7 @@ class MessageModel extends Message {
     required super.timestamp,
     super.isLoading,
     super.conversationId,
+    super.userId,
   });
 
   factory MessageModel.fromJson(Map<String, dynamic> json) =>
@@ -27,6 +28,7 @@ class MessageModel extends Message {
       timestamp: message.timestamp,
       isLoading: message.isLoading,
       conversationId: message.conversationId,
+      userId: message.userId,
     );
   }
 }

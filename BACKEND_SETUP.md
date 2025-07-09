@@ -1,4 +1,4 @@
-# Persona AI Assistant - Backend Setup Guide
+# Persona Assistant - Backend Setup Guide
 
 ## 🚀 Technology Stack
 

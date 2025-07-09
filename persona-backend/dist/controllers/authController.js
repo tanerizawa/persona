@@ -144,10 +144,10 @@ class AuthController {
         }
     }
     async logout(req, res) {
-        var _a;
+        var _a, _b;
         try {
             const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.userId;
-            const deviceId = req.headers['x-device-id'];
+            const deviceId = req.headers['x-device-id'] || ((_b = req.body) === null || _b === void 0 ? void 0 : _b.deviceId);
             if (userId && deviceId) {
                 await productionAuthService_1.ProductionAuthService.logout(userId, deviceId);
             }
@@ -167,7 +167,7 @@ class AuthController {
     }
     async refreshToken(req, res) {
         try {
-            const { refreshToken } = req.body;
+            const { refreshToken, deviceId } = req.body;
             if (!refreshToken) {
                 res.status(400).json({
                     success: false,
@@ -176,7 +176,7 @@ class AuthController {
                 });
                 return;
             }
-            const result = await productionAuthService_1.ProductionAuthService.refreshToken(refreshToken);
+            const result = await productionAuthService_1.ProductionAuthService.refreshToken(refreshToken, deviceId);
             res.json({
                 success: true,
                 accessToken: result.accessToken,
@@ -361,6 +361,33 @@ class AuthController {
             res.status(500).json({
                 success: false,
                 error: 'Disable biometric failed',
+                message: 'Internal server error'
+            });
+        }
+    }
+    async cleanupSessions(req, res) {
+        var _a;
+        try {
+            const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
+            if (!userId) {
+                res.status(401).json({
+                    success: false,
+                    error: 'User not authenticated',
+                    message: 'Authentication required'
+                });
+                return;
+            }
+            await productionAuthService_1.ProductionAuthService.cleanupUserSessions(userId);
+            res.json({
+                success: true,
+                message: 'Old sessions cleaned up successfully'
+            });
+        }
+        catch (error) {
+            console.error('Cleanup sessions error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Session cleanup failed',
                 message: 'Internal server error'
             });
         }

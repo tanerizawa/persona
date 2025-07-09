@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.optionalAuthMiddleware = exports.authMiddleware = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const database_1 = require("../config/database");
+const crypto_1 = __importDefault(require("crypto"));
 const authMiddleware = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
@@ -29,6 +31,24 @@ const authMiddleware = async (req, res, next) => {
         }
         try {
             const decoded = jsonwebtoken_1.default.verify(token, jwtSecret);
+            // Check if session is still active in database
+            const tokenHash = crypto_1.default.createHash('sha256').update(token).digest('hex');
+            const activeSession = await database_1.prisma.userSession.findFirst({
+                where: {
+                    userId: decoded.id,
+                    accessTokenHash: tokenHash,
+                    isActive: true,
+                    expiresAt: { gte: new Date() }
+                }
+            });
+            if (!activeSession) {
+                res.status(401).json({
+                    success: false,
+                    error: 'Session invalid',
+                    message: 'Session has been terminated or expired'
+                });
+                return;
+            }
             // Add user info to request object
             req.user = {
                 id: decoded.id,

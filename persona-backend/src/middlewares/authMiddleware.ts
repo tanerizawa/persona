@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { JwtPayload, AuthenticatedUser } from '../types/index.js';
+import { JwtPayload, AuthenticatedUser } from '../types/index';
+import { prisma } from '../config/database';
+import crypto from 'crypto';
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
@@ -38,6 +40,26 @@ export const authMiddleware = async (
 
     try {
       const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
+      
+      // Check if session is still active in database
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const activeSession = await prisma.userSession.findFirst({
+        where: {
+          userId: decoded.id,
+          accessTokenHash: tokenHash,
+          isActive: true,
+          expiresAt: { gte: new Date() }
+        }
+      });
+
+      if (!activeSession) {
+        res.status(401).json({
+          success: false,
+          error: 'Session invalid',
+          message: 'Session has been terminated or expired'
+        });
+        return;
+      }
       
       // Add user info to request object
       req.user = {

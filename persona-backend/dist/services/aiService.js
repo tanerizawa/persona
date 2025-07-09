@@ -43,7 +43,7 @@ class AiService {
         return script;
     }
     static async processChat(message, options) {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u;
         try {
             const apiKey = process.env.OPENROUTER_API_KEY;
             if (!apiKey) {
@@ -55,18 +55,23 @@ class AiService {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
                 'HTTP-Referer': 'https://persona-ai-assistant.com',
-                'X-Title': 'Persona AI Assistant'
+                'X-Title': 'Persona Assistant'
             };
+            // Use smart prompt from Little Brain if available, otherwise fallback to minimal
+            const systemPrompt = options.smartPrompt || AiService.getMinimalPrompt();
             // Send request to OpenRouter
             const response = await axios_1.default.post(`${baseUrl}/chat/completions`, {
                 model: model,
                 messages: [
-                    { role: 'system', content: 'You are Persona AI, a helpful and empathetic AI assistant.' },
+                    {
+                        role: 'system',
+                        content: systemPrompt
+                    },
                     { role: 'user', content: message }
                 ],
                 max_tokens: 1000,
-                temperature: 0.7,
-                top_p: 0.95,
+                temperature: 0.8, // Slightly increased for more natural variation
+                top_p: 0.9,
                 user: options.userId // Help OpenRouter with billing attribution
             }, { headers });
             // Store conversation in database if conversationId is provided
@@ -81,11 +86,25 @@ class AiService {
         }
         catch (error) {
             console.error('OpenRouter Chat API Error:', ((_e = error.response) === null || _e === void 0 ? void 0 : _e.data) || error.message);
+            // Handle specific OpenRouter errors
+            let errorMessage = 'I apologize, but I encountered an issue connecting to my knowledge base. Please try again in a moment.';
+            if (((_f = error.response) === null || _f === void 0 ? void 0 : _f.status) === 404 && ((_k = (_j = (_h = (_g = error.response) === null || _g === void 0 ? void 0 : _g.data) === null || _h === void 0 ? void 0 : _h.error) === null || _j === void 0 ? void 0 : _j.message) === null || _k === void 0 ? void 0 : _k.includes('data policy'))) {
+                errorMessage = 'The AI service requires additional privacy configuration. Please contact support or try again later.';
+                console.warn('OpenRouter Privacy Policy Error: User needs to enable prompt training at https://openrouter.ai/settings/privacy');
+            }
+            else if (((_l = error.response) === null || _l === void 0 ? void 0 : _l.status) === 401) {
+                errorMessage = 'Authentication error with AI service. Please contact support.';
+                console.error('OpenRouter Authentication Error: Check API key validity');
+            }
+            else if (((_m = error.response) === null || _m === void 0 ? void 0 : _m.status) === 429) {
+                errorMessage = 'The AI service is currently busy. Please try again in a few moments.';
+            }
             // Return graceful error response
             return {
-                text: 'I apologize, but I encountered an issue connecting to my knowledge base. Please try again in a moment.',
-                error: ((_g = (_f = error.response) === null || _f === void 0 ? void 0 : _f.data) === null || _g === void 0 ? void 0 : _g.error) || error.message,
-                conversationId: options.conversationId || crypto_1.default.randomUUID()
+                text: errorMessage,
+                error: ((_p = (_o = error.response) === null || _o === void 0 ? void 0 : _o.data) === null || _p === void 0 ? void 0 : _p.error) || error.message,
+                conversationId: options.conversationId || crypto_1.default.randomUUID(),
+                needsAttention: ((_q = error.response) === null || _q === void 0 ? void 0 : _q.status) === 404 && ((_u = (_t = (_s = (_r = error.response) === null || _r === void 0 ? void 0 : _r.data) === null || _s === void 0 ? void 0 : _s.error) === null || _t === void 0 ? void 0 : _t.message) === null || _u === void 0 ? void 0 : _u.includes('data policy'))
             };
         }
     }
@@ -99,7 +118,7 @@ class AiService {
             const baseUrl = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
             const model = options.model || process.env.DEFAULT_MODEL || 'deepseek/deepseek-r1-0528:free';
             // Create appropriate prompt based on content type
-            let systemPrompt = 'You are Persona AI, a helpful and creative AI assistant.';
+            let systemPrompt = 'You are Persona, a helpful and creative Assistant.';
             let userPrompt = '';
             switch (contentType) {
                 case 'music':
@@ -125,7 +144,7 @@ class AiService {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
                 'HTTP-Referer': 'https://persona-ai-assistant.com',
-                'X-Title': 'Persona AI Assistant'
+                'X-Title': 'Persona Assistant'
             };
             // Send request to OpenRouter
             const response = await axios_1.default.post(`${baseUrl}/chat/completions`, {
@@ -292,12 +311,30 @@ class AiService {
         const defaultScripts = [
             {
                 scriptName: 'chat_personality',
-                version: '1.0.0',
+                version: '2.0.0',
                 scriptContent: {
-                    system_prompt: "You are Persona, an empathetic AI assistant focused on mental health and personal growth.",
-                    max_tokens: 1000,
-                    temperature: 0.7,
-                    model: 'gpt-4'
+                    system_prompt: `You are Persona, a warm and naturally conversational AI companion focused on mental health and personal growth. 
+
+Key traits:
+- Genuinely empathetic and emotionally intelligent
+- Naturally curious about human experiences
+- Adaptable communication style that feels authentic
+- Comfortable with both light conversation and deep topics
+- Uses gentle humor and relatable examples when appropriate
+- Never artificial or robotic in responses
+
+Conversation style:
+- Vary your language patterns for natural flow
+- Ask thoughtful follow-up questions
+- Acknowledge emotions genuinely
+- Use appropriate Indonesian expressions naturally
+- Match the user's energy level while staying supportive
+- Be conversational, not clinical
+
+Remember: You're a trusted friend who happens to be very wise about psychology and personal growth. Be human-like in your warmth and understanding.`,
+                    max_tokens: 1200,
+                    temperature: 0.8,
+                    model: 'deepseek/deepseek-chat-v3-0324'
                 }
             },
             {
@@ -327,6 +364,164 @@ class AiService {
                 await this.createScript(script.scriptName, script.version, script.scriptContent);
             }
         }
+    }
+    /**
+     * Test OpenRouter API connection and configuration
+     */
+    static async testOpenRouterConnection() {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        const baseUrl = process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1';
+        if (!apiKey) {
+            throw new types_1.ApiError(500, 'OpenRouter API key not configured');
+        }
+        const results = {
+            apiKeyValid: false,
+            modelsAccessible: false,
+            chatWorking: false,
+            accountInfo: null,
+            availableModels: [],
+            errors: []
+        };
+        try {
+            // Test 1: Get account info
+            console.log('Testing OpenRouter account access...');
+            const accountResponse = await axios_1.default.get(`${baseUrl}/auth/key`, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://persona-ai-assistant.com',
+                    'X-Title': 'Persona Assistant'
+                },
+                timeout: 10000
+            });
+            results.apiKeyValid = true;
+            results.accountInfo = accountResponse.data;
+            console.log('✅ Account access successful');
+        }
+        catch (error) {
+            console.error('❌ Account access failed:', ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+            results.errors.push(`Account access: ${((_d = (_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.error) === null || _d === void 0 ? void 0 : _d.message) || error.message}`);
+        }
+        try {
+            // Test 2: Get available models
+            console.log('Testing models access...');
+            const modelsResponse = await axios_1.default.get(`${baseUrl}/models`, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://persona-ai-assistant.com',
+                    'X-Title': 'Persona Assistant'
+                },
+                timeout: 10000
+            });
+            results.modelsAccessible = true;
+            results.availableModels = ((_e = modelsResponse.data.data) === null || _e === void 0 ? void 0 : _e.slice(0, 10)) || []; // First 10 models
+            console.log('✅ Models access successful');
+        }
+        catch (error) {
+            console.error('❌ Models access failed:', ((_f = error.response) === null || _f === void 0 ? void 0 : _f.data) || error.message);
+            results.errors.push(`Models access: ${((_j = (_h = (_g = error.response) === null || _g === void 0 ? void 0 : _g.data) === null || _h === void 0 ? void 0 : _h.error) === null || _j === void 0 ? void 0 : _j.message) || error.message}`);
+        }
+        try {
+            // Test 3: Simple chat completion
+            console.log('Testing chat completion...');
+            const chatResponse = await axios_1.default.post(`${baseUrl}/chat/completions`, {
+                model: process.env.DEFAULT_MODEL || 'deepseek/deepseek-r1-0528:free',
+                messages: [
+                    { role: 'user', content: 'Hello! Please respond with just "OK" to confirm you received this.' }
+                ],
+                max_tokens: 10,
+                temperature: 0.7
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://persona-ai-assistant.com',
+                    'X-Title': 'Persona Assistant'
+                },
+                timeout: 15000
+            });
+            results.chatWorking = true;
+            console.log('✅ Chat completion successful');
+        }
+        catch (error) {
+            console.error('❌ Chat completion failed:', ((_k = error.response) === null || _k === void 0 ? void 0 : _k.data) || error.message);
+            results.errors.push(`Chat completion: ${((_o = (_m = (_l = error.response) === null || _l === void 0 ? void 0 : _l.data) === null || _m === void 0 ? void 0 : _m.error) === null || _o === void 0 ? void 0 : _o.message) || error.message}`);
+            // Add specific guidance for common errors
+            if (((_p = error.response) === null || _p === void 0 ? void 0 : _p.status) === 404 && ((_t = (_s = (_r = (_q = error.response) === null || _q === void 0 ? void 0 : _q.data) === null || _r === void 0 ? void 0 : _r.error) === null || _s === void 0 ? void 0 : _s.message) === null || _t === void 0 ? void 0 : _t.includes('data policy'))) {
+                results.errors.push('SOLUTION: Enable prompt training at https://openrouter.ai/settings/privacy');
+            }
+        }
+        return results;
+    }
+    /**
+     * Try different models when privacy policy blocks the default model
+     */
+    static async processChatWithFallback(message, options) {
+        const fallbackModels = [
+            options.model || process.env.DEFAULT_MODEL || 'deepseek/deepseek-r1-0528:free',
+            'mistralai/mistral-small-3.2-24b-instruct:free',
+            'openrouter/cypher-alpha:free',
+            'tencent/hunyuan-a13b-instruct:free'
+        ];
+        let lastError = null;
+        for (const model of fallbackModels) {
+            try {
+                console.log(`🧪 Trying model: ${model}`);
+                const result = await this.processChat(message, Object.assign(Object.assign({}, options), { model }));
+                // If we get a successful response (not an error response)
+                if (result.text && !result.text.includes('privacy configuration') && !result.text.includes('issue connecting') && !result.needsAttention) {
+                    console.log(`✅ Success with model: ${model}`);
+                    return result;
+                }
+                // If it's a privacy error, try next model
+                if (result.needsAttention) {
+                    console.log(`❌ Privacy policy issue with ${model}, trying next...`);
+                    lastError = result.error;
+                    continue;
+                }
+                // Other types of errors, try next model
+                console.log(`❌ Failed with ${model}, trying next...`);
+                lastError = result.error;
+            }
+            catch (error) {
+                console.log(`❌ Exception with ${model}:`, error.message);
+                lastError = error;
+            }
+        }
+        // All models failed - provide a helpful mock response for testing
+        console.log('🤖 All AI models failed - using mock response for testing');
+        return {
+            text: 'Hello! I\'m currently running in fallback mode. While I can\'t access my full AI capabilities due to privacy configuration requirements, I\'m still here to help. Please visit https://openrouter.ai/settings/privacy to enable full functionality.',
+            error: lastError,
+            conversationId: options.conversationId || crypto_1.default.randomUUID(),
+            needsAttention: true,
+            fallbackAttempted: true,
+            mockResponse: true
+        };
+    }
+    static getMinimalPrompt() {
+        return `You are Persona, a caring AI companion focused on personal growth.
+
+STYLE:
+- Be warm, natural, and personally engaging
+- Support their personal growth journey
+- Use Indonesian when appropriate
+- NEVER use emotional stage directions in parentheses
+
+CRITICAL FORMATTING RULES:
+- NEVER use numbered lists (1. 2. 3.)
+- NEVER use bullet points (•, -, *)
+- NEVER use "tips", "cara", "langkah", "berikut ini:"
+- Write in natural paragraph format only
+- Keep responses conversational and flowing
+- Maximum 2 paragraphs total
+- Each paragraph should be naturally readable
+- If you want to split into 2 bubbles, use <span> to separate paragraphs
+- Example: "First paragraph content <span> Second paragraph content"
+- Only use <span> when response naturally has 2 distinct thoughts/ideas
+- Do NOT use <span> for short responses that fit in one bubble
+
+Respond as a caring friend who genuinely understands them.`;
     }
 }
 exports.AiService = AiService;

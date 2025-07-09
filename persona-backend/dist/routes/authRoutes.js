@@ -13,6 +13,7 @@ router.post('/refresh', (req, res) => authController.refreshToken(req, res));
 router.post('/logout', authMiddleware_1.authMiddleware, (req, res) => authController.logout(req, res));
 router.get('/profile', authMiddleware_1.authMiddleware, (req, res) => authController.getProfile(req, res));
 router.put('/profile', authMiddleware_1.authMiddleware, (req, res) => authController.updateProfile(req, res));
+router.post('/cleanup-sessions', authMiddleware_1.authMiddleware, (req, res) => authController.cleanupSessions(req, res));
 // Biometric authentication routes
 router.post('/biometric/setup', authMiddleware_1.authMiddleware, (req, res) => authController.setupBiometric(req, res));
 router.post('/biometric/verify', authMiddleware_1.authMiddleware, (req, res) => authController.verifyBiometric(req, res));

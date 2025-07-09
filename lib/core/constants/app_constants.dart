@@ -1,11 +1,19 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 
 class AppConstants {
   // API Constants
   static String get openRouterBaseUrl => dotenv.env['OPENROUTER_BASE_URL'] ?? 'https://openrouter.ai/api/v1';
   
-  // SECURITY: API Key loaded from .env file
-  static String get openRouterApiKey => dotenv.env['OPENROUTER_API_KEY'] ?? '';
+  // SECURITY: API Key loaded from .env file with debugging
+  static String get openRouterApiKey {
+    final apiKey = dotenv.env['OPENROUTER_API_KEY'] ?? '';
+    if (kDebugMode && apiKey.isEmpty) {
+      debugPrint('⚠️ WARNING: OPENROUTER_API_KEY is empty or not found in .env');
+      debugPrint('📁 Available env keys: ${dotenv.env.keys.where((k) => k.contains('OPENROUTER')).toList()}');
+    }
+    return apiKey;
+  }
   
   // Backend API Configuration
   static String get backendBaseUrl => 
@@ -26,7 +34,7 @@ class AppConstants {
   static const bool isEmulator = true; // TODO: Implement actual detection
   
   // App Constants
-  static String get appName => dotenv.env['APP_NAME'] ?? 'Persona AI Assistant';
+  static String get appName => dotenv.env['APP_NAME'] ?? 'Persona Assistant';
   static String get appVersion => dotenv.env['APP_VERSION'] ?? '1.0.0';
   
   // Storage Keys

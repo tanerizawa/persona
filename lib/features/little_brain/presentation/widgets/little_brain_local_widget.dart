@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/services/background_sync_service.dart';
 import '../../domain/usecases/little_brain_local_usecases.dart';
 import '../../domain/entities/memory_entities.dart';
-import '../../../../core/injection/injection.dart';
+import '../../../../../injection_container.dart';
 
 class LittleBrainLocalWidget extends StatefulWidget {
   const LittleBrainLocalWidget({super.key});

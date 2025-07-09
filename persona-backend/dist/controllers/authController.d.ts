@@ -9,4 +9,5 @@ export declare class AuthController {
     setupBiometric(req: Request, res: Response): Promise<void>;
     verifyBiometric(req: Request, res: Response): Promise<void>;
     disableBiometric(req: Request, res: Response): Promise<void>;
+    cleanupSessions(req: Request, res: Response): Promise<void>;
 }

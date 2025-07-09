@@ -28,7 +28,7 @@ DEFAULT_MODEL=your-preferred-model
 ### App Settings
 ```properties
 # App Configuration
-APP_NAME=Persona AI Assistant
+APP_NAME=Persona Assistant
 APP_VERSION=1.0.0
 NODE_ENV=development  # or 'production' for production builds
 APP_DOMAIN=https://persona-ai.app

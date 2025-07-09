@@ -7,15 +7,18 @@ export declare class AiService {
         userId: string;
         conversationId?: string;
         model?: string;
+        smartPrompt?: string;
     }): Promise<{
         text: any;
         model: any;
         conversationId: string;
         error?: undefined;
+        needsAttention?: undefined;
     } | {
         text: string;
         error: any;
         conversationId: string;
+        needsAttention: any;
         model?: undefined;
     }>;
     static generateContent(contentType: string, parameters: any, options: {
@@ -44,4 +47,43 @@ export declare class AiService {
         status: string;
     }>;
     static initializeDefaultScripts(): Promise<void>;
+    /**
+     * Test OpenRouter API connection and configuration
+     */
+    static testOpenRouterConnection(): Promise<{
+        apiKeyValid: boolean;
+        modelsAccessible: boolean;
+        chatWorking: boolean;
+        accountInfo: null;
+        availableModels: any[];
+        errors: string[];
+    }>;
+    /**
+     * Try different models when privacy policy blocks the default model
+     */
+    static processChatWithFallback(message: string, options: {
+        userId: string;
+        conversationId?: string;
+        model?: string;
+    }): Promise<{
+        text: any;
+        model: any;
+        conversationId: string;
+        error?: undefined;
+        needsAttention?: undefined;
+    } | {
+        text: string;
+        error: any;
+        conversationId: string;
+        needsAttention: any;
+        model?: undefined;
+    } | {
+        text: string;
+        error: any;
+        conversationId: string;
+        needsAttention: boolean;
+        fallbackAttempted: boolean;
+        mockResponse: boolean;
+    }>;
+    static getMinimalPrompt(): string;
 }

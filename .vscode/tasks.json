@@ -1,0 +1,18 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Little Brain - Run App with Monitoring",
+			"type": "shell",
+			"command": "flutter run --debug",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": [
+				"$dart-flutter"
+			],
+			"args": [
+				"--dart-define=LITTLE_BRAIN_MONITORING=true"
+			]
+		}
+	]
+}

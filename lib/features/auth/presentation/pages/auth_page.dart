@@ -85,7 +85,7 @@ class _AuthViewState extends State<AuthView> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Persona AI Assistant',
+              'Persona Assistant',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 32),

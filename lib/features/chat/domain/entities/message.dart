@@ -17,6 +17,7 @@ class Message extends Equatable {
   final DateTime timestamp;
   final bool isLoading;
   final String? conversationId;
+  final String? userId; // Added to support user isolation
 
   const Message({
     required this.id,
@@ -25,10 +26,11 @@ class Message extends Equatable {
     required this.timestamp,
     this.isLoading = false,
     this.conversationId,
+    this.userId,
   });
 
   @override
-  List<Object?> get props => [id, content, role, timestamp, isLoading, conversationId];
+  List<Object?> get props => [id, content, role, timestamp, isLoading, conversationId, userId];
 
   Message copyWith({
     String? id,
@@ -37,6 +39,7 @@ class Message extends Equatable {
     DateTime? timestamp,
     bool? isLoading,
     String? conversationId,
+    String? userId,
   }) {
     return Message(
       id: id ?? this.id,
@@ -45,6 +48,7 @@ class Message extends Equatable {
       timestamp: timestamp ?? this.timestamp,
       isLoading: isLoading ?? this.isLoading,
       conversationId: conversationId ?? this.conversationId,
+      userId: userId ?? this.userId,
     );
   }
 

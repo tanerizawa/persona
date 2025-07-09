@@ -1,4 +1,4 @@
-# 🔧 IMMEDIATE TECHNICAL STEPS - PERSONA AI ASSISTANT
+# 🔧 IMMEDIATE TECHNICAL STEPS - PERSONA Assistant
 
 **Priority**: CRITICAL  
 **Timeline**: Start immediately  
@@ -138,7 +138,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
           'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': process.env.APP_URL,
-          'X-Title': 'Persona AI Assistant'
+          'X-Title': 'Persona Assistant'
         }
       }
     );
@@ -179,7 +179,7 @@ router.post('/content', authenticateToken, async (req, res) => {
       {
         model: 'gpt-4-turbo-preview',
         messages: [
-          { role: 'system', content: 'You are a helpful AI assistant for Persona app.' },
+          { role: 'system', content: 'You are a helpful Assistant for Persona app.' },
           { role: 'user', content: prompts[type] + context }
         ],
         max_tokens: 500,

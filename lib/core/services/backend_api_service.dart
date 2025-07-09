@@ -1,22 +1,33 @@
 import 'package:dio/dio.dart';
 import 'package:injectable/injectable.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 
 import '../constants/app_constants.dart';
 import '../models/crisis_models.dart';
 import 'secure_storage_service.dart';
 import 'biometric_auth_service.dart';
+import 'error_tracking_service.dart';
+import 'performance_service.dart';
 
 @singleton
 class BackendApiService {
   final Dio _dio;
   final SecureStorageService _secureStorage;
   final BiometricAuthService _biometricAuth;
+  final ErrorTrackingService _errorTracking;
+  final PerformanceService _performance;
+
+  // Prevent multiple concurrent token refresh attempts
+  bool _isRefreshing = false;
+  Completer<bool>? _refreshCompleter;
 
   BackendApiService(
     this._dio,
     this._secureStorage,
     this._biometricAuth,
+    this._errorTracking,
+    this._performance,
   ) {
     _setupInterceptors();
   }
@@ -66,7 +77,7 @@ class BackendApiService {
         onError: (error, handler) async {
           // Handle token expiration
           if (error.response?.statusCode == 401) {
-            final refreshed = await _refreshToken();
+            final refreshed = await _safeRefreshToken();
             if (refreshed) {
               // Retry the original request
               final options = error.requestOptions;
@@ -98,24 +109,29 @@ class BackendApiService {
     required String password,
     required String name,
   }) async {
-    try {
-      final deviceId = await _secureStorage.getOrCreateDeviceId();
-      final response = await _dio.post(
-        '${AppConstants.backendBaseUrl}/api/auth/register',
-        data: {
-          'email': email,
-          'password': password,
-          'name': name,
-          'deviceId': deviceId,
-        },
-      );
+    return await _performance.executeWithTracking(
+      'api_register',
+      () async {
+        try {
+          final deviceId = await _secureStorage.getOrCreateDeviceId();
+          final response = await _dio.post(
+            '${AppConstants.backendBaseUrl}/api/auth/register',
+            data: {
+              'email': email,
+              'password': password,
+              'name': name,
+              'deviceId': deviceId,
+            },
+          );
 
-      final authResponse = AuthResponse.fromJson(response.data);
-      await _storeAuthTokens(authResponse);
-      return authResponse;
-    } on DioException catch (e) {
-      throw _handleApiError(e);
-    }
+          final authResponse = AuthResponse.fromJson(response.data);
+          await _storeAuthTokens(authResponse);
+          return authResponse;
+        } on DioException catch (e) {
+          throw _handleApiError(e);
+        }
+      },
+    );
   }
 
   Future<AuthResponse> login({
@@ -133,6 +149,8 @@ class BackendApiService {
       }
 
       final deviceId = await _secureStorage.getOrCreateDeviceId();
+      debugPrint('🔑 Logging in with device ID: $deviceId');
+      
       final response = await _dio.post(
         '${AppConstants.backendBaseUrl}/api/auth/login',
         data: {
@@ -423,22 +441,74 @@ class BackendApiService {
     }
   }
 
+  // Safe refresh token method that prevents concurrent calls
+  Future<bool> _safeRefreshToken() async {
+    // If already refreshing, wait for the current refresh to complete
+    if (_isRefreshing) {
+      if (_refreshCompleter != null) {
+        return await _refreshCompleter!.future;
+      }
+      return false;
+    }
+
+    // Start refreshing
+    _isRefreshing = true;
+    _refreshCompleter = Completer<bool>();
+
+    try {
+      final result = await _refreshToken();
+      _refreshCompleter!.complete(result);
+      return result;
+    } catch (e) {
+      _refreshCompleter!.complete(false);
+      return false;
+    } finally {
+      _isRefreshing = false;
+      _refreshCompleter = null;
+    }
+  }
+
   // Private helper methods
   Future<bool> _refreshToken() async {
     try {
       final refreshToken = await _secureStorage.getRefreshToken();
-      if (refreshToken == null) return false;
+      if (refreshToken == null) {
+        debugPrint('❌ No refresh token available');
+        return false;
+      }
+
+      final deviceId = await _secureStorage.getOrCreateDeviceId();
+      debugPrint('🔄 Refreshing token with device ID: $deviceId');
+      debugPrint('🔑 Using refresh token: ${refreshToken.substring(0, 20)}...');
 
       final response = await _dio.post(
         '${AppConstants.backendBaseUrl}/api/auth/refresh',
-        data: {'refreshToken': refreshToken},
+        data: {
+          'refreshToken': refreshToken,
+          'deviceId': deviceId,
+        },
       );
 
       final authResponse = AuthResponse.fromJson(response.data);
+      
+      debugPrint('🔄 Received new refresh token: ${authResponse.refreshToken.substring(0, 20)}...');
+      
+      // CRITICAL: Store new tokens immediately and validate
       await _storeAuthTokens(authResponse);
+      
+      // Validation: Verify tokens were stored correctly
+      final storedRefreshToken = await _secureStorage.getRefreshToken();
+      if (storedRefreshToken != authResponse.refreshToken) {
+        debugPrint('⚠️ Token storage validation failed!');
+        debugPrint('   Expected: ${authResponse.refreshToken.substring(0, 20)}...');
+        debugPrint('   Got:      ${storedRefreshToken?.substring(0, 20)}...');
+        throw Exception('Token storage failed');
+      }
+      
+      debugPrint('✅ Refresh token updated and validated successfully');
       return true;
     } catch (e) {
-      debugPrint('Token refresh failed: $e');
+      debugPrint('❌ Token refresh failed: $e');
       return false;
     }
   }
@@ -458,6 +528,23 @@ class BackendApiService {
   }
 
   ApiException _handleApiError(DioException error) {
+    final endpoint = error.requestOptions.path;
+    final method = error.requestOptions.method;
+    final statusCode = error.response?.statusCode;
+    
+    // Track API error for analytics
+    _errorTracking.trackApiError(
+      '$method $endpoint',
+      statusCode ?? 0,
+      error.toString(),
+      duration: error.requestOptions.receiveTimeout?.inMilliseconds,
+      requestData: {
+        'method': method,
+        'path': endpoint,
+        'headers': error.requestOptions.headers,
+      },
+    );
+
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
@@ -468,7 +555,6 @@ class BackendApiService {
         return ApiException('Unable to connect to server. Please try again later.');
       
       case DioExceptionType.badResponse:
-        final statusCode = error.response?.statusCode;
         final message = error.response?.data?['message'] ?? 'An error occurred';
         
         switch (statusCode) {

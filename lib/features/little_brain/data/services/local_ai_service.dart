@@ -1,6 +1,11 @@
 import 'dart:math' as math;
 import 'package:injectable/injectable.dart';
 import '../models/hive_models.dart';
+import '../../domain/entities/memory_entities.dart';
+import 'enhanced_emotion_detector.dart';
+import 'advanced_context_extractor.dart';
+import 'personality_intelligence.dart';
+import '../../../../core/services/little_brain_performance_monitor.dart';
 
 @injectable
 class LocalAIService {
@@ -80,65 +85,68 @@ class LocalAIService {
 
   // Extract contexts dari text secara lokal
   Future<List<String>> extractContextsFromText(String text) async {
-    final contexts = <String>{};
-    final lowerText = text.toLowerCase();
+    return await PerformanceWrapper.track('context_extraction', () async {
+      final contexts = <String>{};
+      final lowerText = text.toLowerCase();
 
-    // Emotion detection
-    for (final emotion in emotionKeywords.keys) {
-      for (final keyword in emotionKeywords[emotion]!) {
-        if (lowerText.contains(keyword)) {
-          contexts.add('emotion:$emotion');
-          break;
+      // Emotion detection
+      for (final emotion in emotionKeywords.keys) {
+        for (final keyword in emotionKeywords[emotion]!) {
+          if (lowerText.contains(keyword)) {
+            contexts.add('emotion:$emotion');
+            break;
+          }
         }
       }
-    }
 
-    // Activity detection
-    for (final activity in activityKeywords.keys) {
-      for (final keyword in activityKeywords[activity]!) {
-        if (lowerText.contains(keyword)) {
-          contexts.add('activity:$activity');
-          break;
+      // Activity detection
+      for (final activity in activityKeywords.keys) {
+        for (final keyword in activityKeywords[activity]!) {
+          if (lowerText.contains(keyword)) {
+            contexts.add('activity:$activity');
+            break;
+          }
         }
       }
-    }
 
-    // Relationship detection
-    for (final relationship in relationshipKeywords.keys) {
-      for (final keyword in relationshipKeywords[relationship]!) {
-        if (lowerText.contains(keyword)) {
-          contexts.add('relationship:$relationship');
-          break;
+      // Relationship detection
+      for (final relationship in relationshipKeywords.keys) {
+        for (final keyword in relationshipKeywords[relationship]!) {
+          if (lowerText.contains(keyword)) {
+            contexts.add('relationship:$relationship');
+            break;
+          }
         }
       }
-    }
 
-    // Time-based context
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) {
-      contexts.add('time:morning');
-    } else if (hour >= 12 && hour < 17) {
-      contexts.add('time:afternoon');
-    } else if (hour >= 17 && hour < 21) {
-      contexts.add('time:evening');
-    } else {
-      contexts.add('time:night');
-    }
+      // Time-based context
+      final hour = DateTime.now().hour;
+      if (hour >= 5 && hour < 12) {
+        contexts.add('time:morning');
+      } else if (hour >= 12 && hour < 17) {
+        contexts.add('time:afternoon');
+      } else if (hour >= 17 && hour < 21) {
+        contexts.add('time:evening');
+      } else {
+        contexts.add('time:night');
+      }
 
-    // Day-based context
-    final weekday = DateTime.now().weekday;
-    if (weekday <= 5) {
-      contexts.add('time:weekday');
-    } else {
-      contexts.add('time:weekend');
-    }
+      // Day-based context
+      final weekday = DateTime.now().weekday;
+      if (weekday <= 5) {
+        contexts.add('time:weekday');
+      } else {
+        contexts.add('time:weekend');
+      }
 
-    return contexts.toList();
+      return contexts.toList();
+    });
   }
 
   // Generate tags menggunakan keyword extraction + NLP sederhana
   Future<List<String>> generateTagsFromText(String text) async {
-    final tags = <String>{};
+    return await PerformanceWrapper.track('tag_generation', () async {
+      final tags = <String>{};
     
     // Split text menjadi kata-kata
     final words = text.toLowerCase()
@@ -213,11 +221,13 @@ class LocalAIService {
     // Combine boosted tags first, then regular tags
     final result = [...boostedTags, ...regularTags];
     return result.take(10).toList(); // Max 10 tags
+    });
   }
 
   // Hitung emotional weight berdasarkan keywords dan context
   Future<double> calculateEmotionalWeight(String text, List<String> contexts) async {
-    double weight = 0.5; // Neutral baseline
+    return await PerformanceWrapper.track('emotional_weight_calculation', () async {
+      double weight = 0.5; // Neutral baseline
 
     // Analyze emotional contexts
     for (final context in contexts) {
@@ -287,17 +297,19 @@ class LocalAIService {
     }
 
     return weight.clamp(0.0, 1.0);
+    });
   }
 
   // Analyze personality traits dari collection memories
   Future<Map<String, double>> analyzePersonalityTraits(List<HiveMemory> memories) async {
-    final traits = <String, double>{
-      'openness': 0.5,
-      'conscientiousness': 0.5,
-      'extraversion': 0.5,
-      'agreeableness': 0.5,
-      'neuroticism': 0.5,
-    };
+    return await PerformanceWrapper.track('personality_analysis', () async {
+      final traits = <String, double>{
+        'openness': 0.5,
+        'conscientiousness': 0.5,
+        'extraversion': 0.5,
+        'agreeableness': 0.5,
+        'neuroticism': 0.5,
+      };
 
     if (memories.isEmpty) return traits;
 
@@ -358,13 +370,15 @@ class LocalAIService {
     traits['agreeableness'] = (helpfulCount / total * 0.7 + (1.0 - traits['neuroticism']!) * 0.3).clamp(0.1, 0.9);
 
     return traits;
+    });
   }
 
   // Create AI context string untuk chat berdasarkan relevant memories
   Future<String> createAIContext(List<HiveMemory> relevantMemories, String currentInput) async {
-    if (relevantMemories.isEmpty) {
-      return "User is starting a new conversation with no previous context.";
-    }
+    return await PerformanceWrapper.track('ai_context_creation', () async {
+      if (relevantMemories.isEmpty) {
+        return "User is starting a new conversation with no previous context.";
+      }
 
     // Extract unique contexts
     final contexts = relevantMemories
@@ -402,6 +416,128 @@ ${await _generatePersonalityInsights(relevantMemories)}
 
 Instructions: Use this context to provide personalized, empathetic responses that align with the user's personality and current situation.
 """;
+    });
+  }
+
+  /// Enhanced emotion detection dengan multi-language support
+  Future<List<String>> detectEmotionsEnhanced(String text, {List<String>? contexts}) async {
+    return await PerformanceWrapper.track('emotion_detection', () async {
+      final result = EnhancedEmotionDetector.detectEmotions(text, contexts: contexts);
+      return result.emotions.map((e) => e.emotion).toList();
+    });
+  }
+
+  /// Enhanced context extraction dengan pattern recognition
+  Future<List<String>> extractContextsEnhanced(String text, {DateTime? timestamp}) async {
+    return await PerformanceWrapper.track('context_extraction', () async {
+      final result = AdvancedContextExtractor.extractContexts(text, timestamp: timestamp);
+      return result.contextTags;
+    });
+  }
+
+  /// Enhanced emotional weight calculation
+  Future<double> calculateEmotionalWeightEnhanced(String text, List<String> contexts) async {
+    return await PerformanceWrapper.track('emotional_weight_calculation', () async {
+      final emotionResult = EnhancedEmotionDetector.detectEmotions(text, contexts: contexts);
+      
+      if (emotionResult.emotions.isEmpty) return 0.5;
+      
+      // Calculate weighted average based on emotion polarity and confidence
+      double totalWeight = 0.0;
+      double totalConfidence = 0.0;
+      
+      for (final emotion in emotionResult.emotions) {
+        final polarity = _getEmotionPolarity(emotion.emotion);
+        final weight = 0.5 + (polarity * 0.5); // Convert -1,1 to 0,1 range
+        
+        totalWeight += weight * emotion.confidence;
+        totalConfidence += emotion.confidence;
+      }
+      
+      return totalConfidence > 0 ? totalWeight / totalConfidence : 0.5;
+    });
+  }
+
+  /// Enhanced personality trait analysis
+  Future<Map<String, double>> analyzePersonalityTraitsEnhanced(List<HiveMemory> memories) async {
+    return await PerformanceWrapper.track('personality_analysis', () async {
+      // Convert HiveMemory to Memory entities
+      final memoryEntities = memories.map((hive) => Memory(
+        id: hive.id,
+        content: hive.content,
+        tags: hive.tags,
+        contexts: hive.contexts,
+        emotionalWeight: hive.emotionalWeight,
+        timestamp: hive.timestamp,
+        source: hive.source,
+        metadata: hive.metadata,
+      )).toList();
+      
+      return PersonalityIntelligence.analyzeTraits(memoryEntities);
+    });
+  }
+
+  /// Enhanced AI context generation dengan comprehensive analysis
+  Future<String> createAIContextEnhanced(List<HiveMemory> relevantMemories, String currentInput) async {
+    return await PerformanceWrapper.track('ai_context_generation', () async {
+      if (relevantMemories.isEmpty) {
+        return "User is starting a new conversation with no previous context.";
+      }
+
+      // Enhanced emotion and context analysis
+      final emotionResult = EnhancedEmotionDetector.detectEmotions(currentInput);
+      final contextResult = AdvancedContextExtractor.extractContexts(currentInput, timestamp: DateTime.now());
+      
+      // Convert memories to entities for personality analysis
+      final memoryEntities = relevantMemories.map((hive) => Memory(
+        id: hive.id,
+        content: hive.content,
+        tags: hive.tags,
+        contexts: hive.contexts,
+        emotionalWeight: hive.emotionalWeight,
+        timestamp: hive.timestamp,
+        source: hive.source,
+        metadata: hive.metadata,
+      )).toList();
+
+      // Generate personality insights
+      final traits = PersonalityIntelligence.analyzeTraits(memoryEntities);
+      final insights = PersonalityIntelligence.generateInsights(traits, memoryEntities);
+
+      // Extract unique contexts and emotions
+      final contexts = contextResult.contextTags.take(5).toList();
+      final emotions = emotionResult.emotions.take(3).map((e) => 
+        '${e.emotion} (${(e.confidence * 100).toInt()}%)'
+      ).toList();
+
+      // Get recent memories summary
+      final recentMemories = relevantMemories
+          .take(3)
+          .map((m) => "- ${m.content} (${_formatTimestamp(m.timestamp)})")
+          .join('\n');
+
+      return """
+USER CONTEXT:
+- Current emotions: ${emotions.join(', ')}
+- Active contexts: ${contexts.join(', ')}
+- Personality type: ${insights.personalityType}
+- Main interests: ${insights.interests.take(5).join(', ')}
+- Core values: ${insights.values.take(3).join(', ')}
+
+RECENT RELEVANT MEMORIES:
+$recentMemories
+
+PERSONALITY INSIGHTS:
+- Strengths: ${insights.strengths.take(2).join(', ')}
+- Communication style: ${_getCommunicationStyle(traits)}
+- Emotional state: ${EnhancedEmotionDetector.generateEmotionSummary(emotionResult)}
+
+RECOMMENDATIONS:
+${insights.recommendations.take(2).join('. ')}.
+
+Instructions: Use this context to provide personalized, empathetic responses that align with the user's personality, emotional state, and current situation. Adapt your communication style to match their personality traits.
+""";
+    });
   }
 
   // Helper methods
@@ -470,6 +606,41 @@ Instructions: Use this context to provide personalized, empathetic responses tha
     }
 
     return insights.isEmpty ? "Building personality profile..." : insights.join('; ');
+  }
+
+  /// Get emotion polarity (-1 to 1, negative to positive)
+  double _getEmotionPolarity(String emotion) {
+    const positiveEmotions = ['happy', 'excited', 'calm', 'confident', 'love', 'grateful'];
+    const negativeEmotions = ['sad', 'angry', 'anxious', 'frustrated', 'disappointed'];
+    
+    if (positiveEmotions.contains(emotion)) {
+      return 1.0;
+    } else if (negativeEmotions.contains(emotion)) {
+      return -1.0;
+    } else {
+      return 0.0; // Neutral
+    }
+  }
+
+  /// Get communication style based on personality traits
+  String _getCommunicationStyle(Map<String, double> traits) {
+    final extraversion = traits['extraversion'] ?? 0.5;
+    final agreeableness = traits['agreeableness'] ?? 0.5;
+    final openness = traits['openness'] ?? 0.5;
+    
+    if (extraversion > 0.7 && agreeableness > 0.7) {
+      return 'Warm and engaging';
+    } else if (extraversion < 0.3 && openness > 0.7) {
+      return 'Thoughtful and reflective';
+    } else if (agreeableness > 0.7) {
+      return 'Supportive and empathetic';
+    } else if (openness > 0.7) {
+      return 'Curious and explorative';
+    } else if (extraversion > 0.7) {
+      return 'Direct and energetic';
+    } else {
+      return 'Balanced and adaptable';
+    }
   }
 
   // Find similar memories berdasarkan content similarity

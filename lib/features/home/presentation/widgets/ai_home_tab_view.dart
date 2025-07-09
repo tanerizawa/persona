@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/injection/injection.dart';
+import '../../../../core/services/connectivity_service.dart';
+import '../../../../injection_container.dart';
 import '../../domain/entities/home_content_entities.dart';
-import '../../domain/usecases/home_content_usecases.dart';
+import '../../domain/usecases/smart_content_manager.dart';
 
 class AIHomeTabView extends StatefulWidget {
   const AIHomeTabView({super.key});
@@ -14,16 +15,32 @@ class AIHomeTabView extends StatefulWidget {
 }
 
 class _AIHomeTabViewState extends State<AIHomeTabView> {
-  late HomeContentUseCases _homeContentUseCases;
+  late SmartContentManager _smartContentManager;
+  late ConnectivityService _connectivityService;
   List<AIContent> _aiContent = [];
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isOffline = false;
 
   @override
   void initState() {
     super.initState();
-    _homeContentUseCases = getIt<HomeContentUseCases>();
-    _loadAIContent();
+    _smartContentManager = getIt<SmartContentManager>();
+    _connectivityService = getIt<ConnectivityService>();
+    _checkConnectivityAndLoadContent();
+  }
+
+  Future<void> _checkConnectivityAndLoadContent() async {
+    final isOnline = _connectivityService.hasInternet;
+    setState(() {
+      _isOffline = !isOnline;
+    });
+    
+    if (isOnline) {
+      _loadAIContent();
+    } else {
+      _loadOfflineContent();
+    }
   }
 
   Future<void> _loadAIContent() async {
@@ -33,7 +50,7 @@ class _AIHomeTabViewState extends State<AIHomeTabView> {
     });
 
     try {
-      final content = await _homeContentUseCases.generatePersonalizedContent();
+      final content = await _smartContentManager.getSmartContent();
       if (mounted) {
         setState(() {
           _aiContent = content;
@@ -53,16 +70,106 @@ class _AIHomeTabViewState extends State<AIHomeTabView> {
   }
 
   void _loadFallbackContent() {
-    // This will be populated with fallback content from usecases
+    // Load offline content when online content fails
+    _loadOfflineContent();
+  }
+
+  void _loadOfflineContent() {
+    // Provide comprehensive offline content with local suggestions
+    final now = DateTime.now();
+    
     if (mounted) {
       setState(() {
-        _aiContent = [];
+        _aiContent = [
+          // Offline self-reflection content
+          AIContent(
+            id: 'offline_reflection_1',
+            type: 'journal_prompt',
+            title: '🌱 Refleksi Diri Hari Ini',
+            subtitle: 'Pengembangan Diri',
+            description: 'Luangkan waktu untuk merefleksikan pencapaian dan pembelajaran hari ini.',
+            metadata: {
+              'content': 'Apa yang telah saya pelajari hari ini? Bagaimana saya bisa berkembang lebih baik besok?',
+              'category': 'refleksi',
+              'offline': true,
+            },
+            generatedAt: now,
+            relevanceScore: 0.9,
+          ),
+          
+          // Offline mindfulness content
+          AIContent(
+            id: 'offline_mindfulness_1',
+            type: 'article',
+            title: '🧘‍♀️ Latihan Mindfulness 5 Menit',
+            subtitle: 'Kesehatan Mental',
+            description: 'Teknik pernapasan sederhana untuk mengurangi stres dan meningkatkan fokus.',
+            metadata: {
+              'content': '1. Duduk dengan nyaman\n2. Tutup mata dan fokus pada napas\n3. Hitung napas dari 1-10\n4. Ulangi 3 kali',
+              'category': 'mindfulness',
+              'offline': true,
+            },
+            generatedAt: now,
+            relevanceScore: 0.85,
+          ),
+          
+          // Offline productivity tip
+          AIContent(
+            id: 'offline_productivity_1',
+            type: 'article',
+            title: '⚡ Tips Produktivitas: Teknik Pomodoro',
+            subtitle: 'Manajemen Waktu',
+            description: 'Manajemen waktu efektif dengan sesi fokus 25 menit.',
+            metadata: {
+              'content': 'Bekerja selama 25 menit dengan fokus penuh, lalu istirahat 5 menit. Ulangi 4 kali, lalu istirahat panjang 15-30 menit.',
+              'category': 'produktivitas',
+              'offline': true,
+            },
+            generatedAt: now,
+            relevanceScore: 0.8,
+          ),
+          
+          // Offline inspiration
+          AIContent(
+            id: 'offline_inspiration_1',
+            type: 'quote',
+            title: '✨ Kutipan Inspiratif',
+            subtitle: 'Motivasi Harian',
+            description: 'Kata-kata motivasi untuk menghadapi tantangan hari ini.',
+            metadata: {
+              'content': '"Kesuksesan bukanlah kunci kebahagiaan. Kebahagiaan adalah kunci kesuksesan. Jika Anda mencintai apa yang Anda lakukan, Anda akan sukses." - Albert Schweitzer',
+              'category': 'inspirasi',
+              'offline': true,
+            },
+            generatedAt: now,
+            relevanceScore: 0.9,
+          ),
+          
+          // Offline health tip
+          AIContent(
+            id: 'offline_health_1',
+            type: 'article',
+            title: '💧 Tips Kesehatan: Hidrasi yang Cukup',
+            subtitle: 'Kesehatan Fisik',
+            description: 'Pentingnya menjaga asupan air untuk kesehatan optimal.',
+            metadata: {
+              'content': 'Minum air 8 gelas per hari (2 liter). Tanda tubuh terhidrasi: urin berwarna kuning muda, tidak merasa haus berlebihan, kulit elastis.',
+              'category': 'kesehatan',
+              'offline': true,
+            },
+            generatedAt: now,
+            relevanceScore: 0.75,
+          ),
+        ];
+        _isLoading = false;
+        _errorMessage = null;
       });
     }
   }
 
   Future<void> _refreshContent() async {
-    await _loadAIContent();
+    // Check connectivity first
+    await _checkConnectivityAndLoadContent();
   }
 
   @override
@@ -77,6 +184,10 @@ class _AIHomeTabViewState extends State<AIHomeTabView> {
             // Welcome Header with personalized greeting
             _buildPersonalizedWelcomeHeader(context),
             const SizedBox(height: AppConstants.largePadding),
+            
+            // Offline mode indicator
+            if (_isOffline)
+              _buildOfflineIndicator(context),
             
             // Error message if any
             if (_errorMessage != null)
@@ -612,6 +723,50 @@ class _AIHomeTabViewState extends State<AIHomeTabView> {
           icon: const Icon(Symbols.arrow_forward),
         ),
         onTap: onRead,
+      ),
+    );
+  }
+
+  Widget _buildOfflineIndicator(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppConstants.largePadding),
+      padding: const EdgeInsets.all(AppConstants.defaultPadding),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Symbols.wifi_off,
+            color: Colors.blue.shade600,
+            size: 24,
+          ),
+          const SizedBox(width: AppConstants.defaultPadding),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mode Offline',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Menampilkan konten lokal yang tersimpan. Konten akan diperbarui saat terhubung ke internet.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.blue.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

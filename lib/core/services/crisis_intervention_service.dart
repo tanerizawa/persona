@@ -1,5 +1,6 @@
 import 'package:persona_ai_assistant/core/services/backend_api_service.dart';
 import 'package:persona_ai_assistant/core/models/crisis_models.dart';
+import 'package:persona_ai_assistant/core/services/logging_service.dart';
 import 'package:persona_ai_assistant/injection_container.dart';
 
 /// Crisis intervention service that manages crisis detection, logging, and intervention
@@ -9,6 +10,7 @@ class CrisisInterventionService {
   CrisisInterventionService._internal();
 
   final BackendApiService _backendApi = getIt<BackendApiService>();
+  final LoggingService _logger = LoggingService();
 
   /// Log a crisis event to the backend
   Future<void> logCrisisEvent({
@@ -26,7 +28,7 @@ class CrisisInterventionService {
       );
     } catch (e) {
       // Log locally if backend fails
-      print('Crisis event logging failed: $e');
+      _logger.error('Crisis event logging failed: $e');
       // Could store locally and sync later
     }
   }
@@ -46,7 +48,7 @@ class CrisisInterventionService {
         professionalContactMade: professionalContactMade,
       );
     } catch (e) {
-      print('Intervention recording failed: $e');
+      _logger.error('Intervention recording failed: $e');
     }
   }
 
@@ -55,7 +57,7 @@ class CrisisInterventionService {
     try {
       return await _backendApi.getCrisisHistory();
     } catch (e) {
-      print('Failed to get crisis history: $e');
+      _logger.error('Failed to get crisis history: $e');
       return [];
     }
   }
@@ -65,7 +67,7 @@ class CrisisInterventionService {
     try {
       return await _backendApi.getCrisisResources(language: language);
     } catch (e) {
-      print('Failed to get crisis resources: $e');
+      _logger.error('Failed to get crisis resources: $e');
       // Return default Indonesian resources
       return _getDefaultIndonesianResources();
     }

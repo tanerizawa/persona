@@ -6,12 +6,14 @@ import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend_api_service.dart';
+import 'logging_service.dart';
 
 /// Service to handle push notifications using Firebase Cloud Messaging
 @singleton
 class PushNotificationService {
   final BackendApiService _backendApi;
   final FlutterLocalNotificationsPlugin _localNotifications;
+  final LoggingService _logger = LoggingService();
   late FirebaseMessaging _firebaseMessaging;
   
   bool _isInitialized = false;
@@ -45,9 +47,9 @@ class PushNotificationService {
       _setupMessageHandlers();
 
       _isInitialized = true;
-      print('✅ Push notification service initialized successfully');
+      _logger.info('✅ Push notification service initialized successfully');
     } catch (e) {
-      print('❌ Failed to initialize push notification service: $e');
+      _logger.error('❌ Failed to initialize push notification service: $e');
       // Don't throw - allow app to continue without push notifications
     }
   }
@@ -120,7 +122,7 @@ class PushNotificationService {
       provisional: false,
     );
 
-    print('Notification permission status: ${settings.authorizationStatus}');
+    _logger.info('Notification permission status: ${settings.authorizationStatus}');
   }
 
   /// Setup FCM token handling
@@ -140,7 +142,7 @@ class PushNotificationService {
         await _saveTokenLocally(token);
       });
     } catch (e) {
-      print('Error setting up FCM token: $e');
+      _logger.error('Error setting up FCM token: $e');
     }
   }
 
@@ -148,9 +150,9 @@ class PushNotificationService {
   Future<void> _sendTokenToBackend(String token) async {
     try {
       await _backendApi.registerDeviceToken(token);
-      print('✅ FCM token registered with backend');
+      _logger.info('✅ FCM token registered with backend');
     } catch (e) {
-      print('❌ Failed to register FCM token with backend: $e');
+      _logger.error('❌ Failed to register FCM token with backend: $e');
     }
   }
 
@@ -174,7 +176,7 @@ class PushNotificationService {
 
   /// Handle messages when app is in foreground
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    print('Received foreground message: ${message.messageId}');
+    _logger.info('Received foreground message: ${message.messageId}');
 
     // Show local notification
     await _showLocalNotification(message);
@@ -182,7 +184,7 @@ class PushNotificationService {
 
   /// Handle notification tap when app was in background
   void _handleNotificationTap(RemoteMessage message) {
-    print('Notification tapped: ${message.messageId}');
+    _logger.info('Notification tapped: ${message.messageId}');
     _processNotificationData(message.data);
   }
 
@@ -190,7 +192,7 @@ class PushNotificationService {
   Future<void> _handleInitialMessage() async {
     final message = await _firebaseMessaging.getInitialMessage();
     if (message != null) {
-      print('App opened from notification: ${message.messageId}');
+      _logger.info('App opened from notification: ${message.messageId}');
       _processNotificationData(message.data);
     }
   }
@@ -257,7 +259,7 @@ class PushNotificationService {
     final type = data['type'] as String?;
     final route = data['route'] as String?;
 
-    print('Processing notification: type=$type, route=$route');
+    _logger.info('Processing notification: type=$type, route=$route');
 
     // TODO: Implement navigation based on notification type
     // This could be handled by injecting a navigation service

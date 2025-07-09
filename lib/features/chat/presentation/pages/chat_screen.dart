@@ -4,7 +4,7 @@ import '../../domain/entities/message.dart';
 import '../bloc/chat_bloc.dart';
 import '../bloc/chat_event.dart';
 import '../bloc/chat_state.dart';
-import '../widgets/chat_bubble.dart';
+import '../widgets/chat_bubble_fixed.dart';
 import '../widgets/chat_input.dart';
 import '../widgets/typing_indicator.dart';
 

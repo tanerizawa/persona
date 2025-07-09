@@ -23,7 +23,7 @@ export declare class ProductionAuthService {
         accessToken: string;
         refreshToken: string;
     }>;
-    static refreshToken(refreshToken: string): Promise<{
+    static refreshToken(refreshToken: string, deviceId?: string): Promise<{
         accessToken: string;
         refreshToken: string;
     }>;
@@ -42,6 +42,7 @@ export declare class ProductionAuthService {
     private static hashToken;
     private static createSession;
     private static handleFailedLogin;
+    static cleanupUserSessions(userId: string): Promise<void>;
     private static logSecurityEvent;
     static getUserProfile(userId: string): Promise<any>;
     static updateUserProfile(userId: string, data: {

@@ -1,5 +1,8 @@
 import 'package:get_it/get_it.dart';
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/api/api_client.dart';
@@ -7,19 +10,37 @@ import 'core/api/openrouter_api_service.dart';
 import 'core/services/secure_storage_service.dart';
 import 'core/services/biometric_auth_service.dart';
 import 'core/services/backend_api_service.dart';
+import 'core/services/user_session_service.dart';
+import 'core/services/connectivity_service.dart';
+import 'core/services/offline_mode_service.dart';
 import 'core/services/crisis_intervention_service.dart';
 import 'core/services/sync_scheduler_service.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/services/logging_service.dart';
+import 'core/services/remote_config_service.dart';
+import 'core/services/performance_service.dart';
+import 'core/services/performance_monitor.dart';
+import 'core/services/cache_service.dart';
+import 'core/services/error_tracking_service.dart';
+import 'core/services/database_optimization_service.dart';
+import 'core/services/session_manager_service.dart';
+import 'core/services/production_logging_service.dart';
+import 'core/services/advanced_cache_service.dart';
+import 'core/services/performance_testing_service.dart';
+import 'core/utils/memory_manager.dart';
 import 'features/auth/bloc/auth_bloc.dart';
+import 'features/auth/domain/usecases/clear_user_data_usecase.dart';
 import 'features/auth/data/datasources/auth_remote_datasource.dart';
 import 'features/auth/data/datasources/auth_remote_datasource_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/little_brain/data/services/background_sync_service.dart';
+import 'features/little_brain/data/services/minimal_sync_service.dart';
 import 'features/little_brain/data/repositories/little_brain_local_repository.dart';
 import 'features/little_brain/data/services/local_ai_service.dart';
 import 'features/little_brain/domain/usecases/little_brain_local_usecases.dart';
 import 'features/home/domain/usecases/home_content_usecases.dart';
+import 'features/home/domain/usecases/smart_content_manager.dart';
 import 'features/chat/domain/repositories/chat_repository.dart';
 import 'features/chat/data/repositories/chat_repository_impl.dart';
 import 'features/chat/data/datasources/chat_local_datasource.dart';
@@ -27,6 +48,8 @@ import 'features/chat/data/datasources/chat_local_datasource_impl.dart';
 import 'features/chat/data/datasources/chat_remote_datasource.dart';
 import 'features/chat/data/datasources/chat_remote_datasource_impl.dart';
 import 'features/chat/domain/services/chat_personality_service.dart';
+import 'features/chat/domain/services/smart_prompt_builder_service.dart';
+import 'features/chat/domain/services/chat_message_optimizer.dart';
 import 'features/chat/domain/usecases/send_message.dart';
 import 'features/chat/domain/usecases/get_conversation_history.dart';
 import 'features/chat/presentation/bloc/chat_bloc.dart';
@@ -38,14 +61,84 @@ import 'features/psychology/domain/usecases/psychology_testing_usecases.dart';
 final getIt = GetIt.instance;
 
 Future<void> configureDependencies() async {
+  // Register SharedPreferences first
+  final sharedPreferences = await SharedPreferences.getInstance();
+  getIt.registerSingleton<SharedPreferences>(sharedPreferences);
+  
   // Register core services manually until build_runner generates config
   getIt.registerSingleton<ApiClient>(ApiClient());
   getIt.registerSingleton<SecureStorageService>(SecureStorageService.instance);
   getIt.registerSingleton<BiometricAuthService>(BiometricAuthService.instance);
   
-  // Register API services with properly configured Dio for OpenRouter
+  // Register User Session Service for user switching detection
+  getIt.registerSingleton<UserSessionService>(
+    UserSessionService(getIt<SecureStorageService>())
+  );
+  
+  // Register Remote Config Service
+  getIt.registerSingleton<RemoteConfigService>(
+    RemoteConfigService(getIt<SharedPreferences>(), LoggingService())
+  );
+  
+  // Register Performance and Utility Services
+  getIt.registerSingleton<PerformanceService>(PerformanceService());
+  getIt.registerSingleton<PerformanceMonitor>(PerformanceMonitor());
+  getIt.registerSingleton<CacheService>(CacheService());
+  getIt.registerSingleton<ErrorTrackingService>(ErrorTrackingService());
+  getIt.registerSingleton<DatabaseOptimizationService>(DatabaseOptimizationService());
+  getIt.registerSingleton<SessionManagerService>(SessionManagerService());
+  getIt.registerSingleton<ProductionLoggingService>(ProductionLoggingService());
+  getIt.registerSingleton<AdvancedCacheService>(AdvancedCacheService());
+  getIt.registerSingleton<PerformanceTestingService>(PerformanceTestingService());
+  getIt.registerSingleton<MemoryManager>(MemoryManager.instance);
+  
+  // Register Connectivity Services
+  getIt.registerSingleton<ConnectivityService>(ConnectivityService());
+  getIt.registerSingleton<OfflineModeService>(
+    OfflineModeService(getIt<ConnectivityService>())
+  );
+  
+  // Register API services with separate Dio instances
+  // Create separate Dio instance for OpenRouter (without backend interceptors)
+  final openRouterDio = Dio();
+  openRouterDio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        try {
+          // Add OpenRouter API key to headers
+          final apiKey = AppConstants.openRouterApiKey;
+          if (apiKey.isEmpty) {
+            throw Exception('OpenRouter API key is empty');
+          }
+          options.headers['Authorization'] = 'Bearer $apiKey';
+          options.headers['HTTP-Referer'] = AppConstants.appName;
+          options.headers['X-Title'] = AppConstants.appName;
+          options.headers['Content-Type'] = 'application/json';
+          
+          debugPrint('🔑 [OpenRouter] Using API key: ${apiKey.substring(0, 20)}...');
+          debugPrint('🌐 [OpenRouter] Request URL: ${options.uri}');
+          
+          handler.next(options);
+        } catch (e) {
+          debugPrint('OpenRouter API Configuration Error: $e');
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              error: 'OpenRouter API configuration failed',
+              type: DioExceptionType.cancel,
+            ),
+          );
+        }
+      },
+      onError: (error, handler) {
+        debugPrint('❌ OpenRouter API Error: ${error.response?.statusCode} - ${error.response?.data}');
+        handler.next(error);
+      },
+    ),
+  );
+  
   getIt.registerSingleton<OpenRouterApiService>(
-    OpenRouterApiService(getIt<ApiClient>().dio, baseUrl: AppConstants.openRouterBaseUrl)
+    OpenRouterApiService(openRouterDio, baseUrl: AppConstants.openRouterBaseUrl)
   );
   
   // Register Backend API service
@@ -54,6 +147,8 @@ Future<void> configureDependencies() async {
       getIt<ApiClient>().dio,
       getIt<SecureStorageService>(),
       getIt<BiometricAuthService>(),
+      getIt<ErrorTrackingService>(),
+      getIt<PerformanceService>(),
     ),
   );
   
@@ -76,11 +171,28 @@ Future<void> configureDependencies() async {
     () => AddMemoryLocalUseCase(getIt<LittleBrainLocalRepository>()),
   );
   
+  getIt.registerLazySingleton<GetRelevantMemoriesLocalUseCase>(
+    () => GetRelevantMemoriesLocalUseCase(getIt<LittleBrainLocalRepository>()),
+  );
+  
+  getIt.registerLazySingleton<CreateAIContextLocalUseCase>(
+    () => CreateAIContextLocalUseCase(getIt<LittleBrainLocalRepository>(), getIt<LocalAIService>()),
+  );
+  
+  getIt.registerLazySingleton<ClearAllLocalDataUseCase>(
+    () => ClearAllLocalDataUseCase(getIt<LittleBrainLocalRepository>()),
+  );
+  
   getIt.registerLazySingleton<BackgroundSyncService>(
     () => BackgroundSyncService(
       getIt<LittleBrainLocalRepository>(),
       getIt<BackendApiService>(),
     ),
+  );
+
+  // Register Minimal Sync Service for ultra-minimal server
+  getIt.registerLazySingleton<MinimalSyncService>(
+    () => MinimalSyncService(),
   );
   
   // Register Sync Scheduler service
@@ -108,12 +220,24 @@ Future<void> configureDependencies() async {
     ),
   );
   
+  // Register ClearUserDataUseCase before AuthBloc
+  getIt.registerLazySingleton<ClearUserDataUseCase>(
+    () => ClearUserDataUseCase(
+      getIt<SecureStorageService>(),
+      getIt<BiometricAuthService>(),
+      getIt<ChatLocalDataSource>(),
+      getIt<ClearAllLocalDataUseCase>(),
+    ),
+  );
+  
   // Register Auth BLoC
   getIt.registerFactory<AuthBloc>(
     () => AuthBloc(
       getIt<BackendApiService>(),
       getIt<SecureStorageService>(),
       getIt<BiometricAuthService>(),
+      getIt<ClearUserDataUseCase>(),
+      getIt<UserSessionService>(),
     ),
   );
   
@@ -130,16 +254,31 @@ Future<void> configureDependencies() async {
   );
   
   // 3. Register Chat dependencies
-  // 3.1 Register Chat services
+  // 3.1 Register Smart Prompt Builder Service first
+  getIt.registerLazySingleton<SmartPromptBuilderService>(
+    () => SmartPromptBuilderService(
+      getIt<CreateAIContextLocalUseCase>(),
+      getIt<GetRelevantMemoriesLocalUseCase>(),
+      getIt<PsychologyTestingUseCases>(),
+      getIt<MoodTrackingUseCases>(),
+    ),
+  );
+  
+  // 3.2 Register Chat Message Optimizer
+  getIt.registerLazySingleton<ChatMessageOptimizer>(
+    () => ChatMessageOptimizer(),
+  );
+
+  // 3.3 Register Chat services
   getIt.registerLazySingleton<ChatPersonalityService>(
     () => ChatPersonalityService(
       getIt<PsychologyTestingUseCases>(),
       getIt<MoodTrackingUseCases>(),
-      getIt<LittleBrainLocalRepository>(),
+      getIt<SmartPromptBuilderService>(),
     ),
   );
   
-  // 3.2 Register Chat data sources
+  // 3.3 Register Chat data sources
   getIt.registerLazySingleton<ChatLocalDataSource>(
     () => ChatLocalDataSourceImpl(),
   );
@@ -151,17 +290,18 @@ Future<void> configureDependencies() async {
     ),
   );
   
-  // 3.3 Register Chat repository
+  // 3.4 Register Chat repository
   getIt.registerLazySingleton<ChatRepository>(
     () => ChatRepositoryImpl(
       remoteDataSource: getIt<ChatRemoteDataSource>(),
       localDataSource: getIt<ChatLocalDataSource>(),
       personalityService: getIt<ChatPersonalityService>(),
+      messageOptimizer: getIt<ChatMessageOptimizer>(),
       addMemoryUseCase: getIt<AddMemoryLocalUseCase>(),
     ),
   );
   
-  // 3.4 Register Chat use cases
+  // 3.5 Register Chat use cases
   getIt.registerLazySingleton<SendMessageUseCase>(
     () => SendMessageUseCase(getIt<ChatRepository>()),
   );
@@ -170,11 +310,12 @@ Future<void> configureDependencies() async {
     () => GetConversationHistoryUseCase(getIt<ChatRepository>()),
   );
   
-  // 3.5 Register Chat bloc
+  // 3.6 Register Chat bloc
   getIt.registerFactory<ChatBloc>(
     () => ChatBloc(
       sendMessageUseCase: getIt<SendMessageUseCase>(),
       getConversationHistoryUseCase: getIt<GetConversationHistoryUseCase>(),
+      userSessionService: getIt<UserSessionService>(),
     ),
   );
   
@@ -185,6 +326,17 @@ Future<void> configureDependencies() async {
       getIt<MoodTrackingUseCases>(),
       getIt<PsychologyTestingUseCases>(),
       getIt<OpenRouterApiService>(),
+    ),
+  );
+
+  // 5. Register Smart Content Manager (optimized for minimal API usage)
+  getIt.registerLazySingleton<SmartContentManager>(
+    () => SmartContentManager(
+      getIt<LittleBrainLocalRepository>(),
+      getIt<MoodTrackingUseCases>(),
+      getIt<PsychologyTestingUseCases>(),
+      getIt<OpenRouterApiService>(),
+      getIt<SharedPreferences>(),
     ),
   );
 }

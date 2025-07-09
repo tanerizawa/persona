@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/little_brain/data/services/background_sync_service.dart';
 import '../../injection_container.dart';
+import 'logging_service.dart';
 
 /// Service that schedules and manages automatic background synchronization
 @singleton
@@ -17,6 +18,7 @@ class SyncSchedulerService {
   Timer? _syncTimer;
   bool _isRunning = false;
   late final BackgroundSyncService _syncService;
+  final LoggingService _logger = LoggingService();
 
   SyncSchedulerService() {
     _syncService = getIt<BackgroundSyncService>();
@@ -146,7 +148,7 @@ class SyncSchedulerService {
       }
       
     } catch (e) {
-      print('Sync error: $e');
+      _logger.error('Sync error: $e');
       await _increaseSyncInterval();
       await _schedulePeriodicSync();
     }

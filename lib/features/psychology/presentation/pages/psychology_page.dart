@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/injection/injection.dart';
+import '../../../../../injection_container.dart';
 import '../../domain/usecases/psychology_testing_usecases.dart';
 import '../../domain/entities/psychology_entities.dart';
 import '../widgets/mbti_test_widget.dart';

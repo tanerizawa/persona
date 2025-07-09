@@ -1,5 +1,6 @@
 import { prisma } from '../config/database';
 import { ApiError } from '../types';
+import { AiService } from './aiService';
 import axios from 'axios';
 
 export interface ChatMessage {
@@ -95,8 +96,16 @@ export class ChatService {
         }
       ];
 
-      // Get AI response
-      const aiContent = await this.getAIResponse(messages, userId);
+      // Get AI response using the AiService with fallback support
+      const aiResult = await AiService.processChatWithFallback(
+        messages[messages.length - 1].content, // Last user message
+        {
+          userId,
+          conversationId: conversation.id
+        }
+      );
+
+      const aiContent = aiResult.text;
 
       // Save AI response
       const aiMessage = await prisma.message.create({
@@ -242,7 +251,7 @@ export class ChatService {
           messages: [
             {
               role: 'system',
-              content: `You are Persona, an intelligent AI assistant that understands and adapts to the user's personality. You provide thoughtful, personalized responses that help the user grow and understand themselves better. Be empathetic, insightful, and supportive.`
+              content: `You are Persona, an intelligent Assistant that understands and adapts to the user's personality. You provide thoughtful, personalized responses that help the user grow and understand themselves better. Be empathetic, insightful, and supportive.`
             },
             ...messages
           ],
@@ -253,7 +262,7 @@ export class ChatService {
           headers: {
             'Authorization': `Bearer ${this.OPENROUTER_API_KEY}`,
             'Content-Type': 'application/json',
-            'X-Title': 'Persona AI Assistant'
+            'X-Title': 'Persona Assistant'
           }
         }
       );

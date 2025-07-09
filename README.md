@@ -1,4 +1,4 @@
-# Persona AI Assistant
+# Persona Assistant
 
 Modern AI Personal Assistant app with OpenRouter integration for Android and iOS. Features include AI-curated content, conversational assistant, mood tracking, psychology tests, and long-term memory system.
 

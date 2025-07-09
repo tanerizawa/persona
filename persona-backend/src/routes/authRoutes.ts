@@ -14,6 +14,7 @@ router.post('/refresh', (req, res) => authController.refreshToken(req, res));
 router.post('/logout', authMiddleware, (req, res) => authController.logout(req, res));
 router.get('/profile', authMiddleware, (req, res) => authController.getProfile(req, res));
 router.put('/profile', authMiddleware, (req, res) => authController.updateProfile(req, res));
+router.post('/cleanup-sessions', authMiddleware, (req, res) => authController.cleanupSessions(req, res));
 
 // Biometric authentication routes
 router.post('/biometric/setup', authMiddleware, (req, res) => authController.setupBiometric(req, res));

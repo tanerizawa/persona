@@ -66,7 +66,7 @@ void main() async {
     // All validations passed
     print('✅ API Key Configuration Validated Successfully!');
     print('');
-    print('🚀 Your Persona AI app should now be able to:');
+    print('🚀 Your Persona app should now be able to:');
     print('   • Connect to OpenRouter API');
     print('   • Use AI chat features');
     print('   • Generate curated content');

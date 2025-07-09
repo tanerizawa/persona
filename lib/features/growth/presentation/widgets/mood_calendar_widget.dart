@@ -3,7 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/injection/injection.dart';
+import '../../../../../injection_container.dart';
 import '../../domain/entities/mood_entities.dart';
 import '../../domain/usecases/mood_tracking_usecases.dart';
 

@@ -41,7 +41,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 // Start the app
 Promise.resolve().then(() => __importStar(require('./app'))).then(() => {
-    console.log('🚀 Persona AI Backend started successfully');
+    console.log('🚀 Persona Backend started successfully');
 }).catch((error) => {
     console.error('❌ Failed to start backend:', error);
     process.exit(1);

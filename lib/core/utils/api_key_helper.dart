@@ -5,7 +5,7 @@ class ApiKeyHelper {
   static const String _apiKeyInstructions = '''
 🔑 OpenRouter API Key Setup Required
 
-Your Persona AI Assistant needs an OpenRouter API key to work with AI features.
+Your Persona Assistant needs an OpenRouter API key to work with AI features.
 
 Steps to get your API key:
 1. Visit https://openrouter.ai/keys

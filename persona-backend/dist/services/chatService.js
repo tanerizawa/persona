@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatService = void 0;
 const database_1 = require("../config/database");
 const types_1 = require("../types");
+const aiService_1 = require("./aiService");
 const axios_1 = __importDefault(require("axios"));
 class ChatService {
     /**
@@ -71,8 +72,13 @@ class ChatService {
                     content
                 }
             ];
-            // Get AI response
-            const aiContent = await this.getAIResponse(messages, userId);
+            // Get AI response using the AiService with fallback support
+            const aiResult = await aiService_1.AiService.processChatWithFallback(messages[messages.length - 1].content, // Last user message
+            {
+                userId,
+                conversationId: conversation.id
+            });
+            const aiContent = aiResult.text;
             // Save AI response
             const aiMessage = await database_1.prisma.message.create({
                 data: {
@@ -206,7 +212,7 @@ class ChatService {
                 messages: [
                     {
                         role: 'system',
-                        content: `You are Persona, an intelligent AI assistant that understands and adapts to the user's personality. You provide thoughtful, personalized responses that help the user grow and understand themselves better. Be empathetic, insightful, and supportive.`
+                        content: `You are Persona, an intelligent Assistant that understands and adapts to the user's personality. You provide thoughtful, personalized responses that help the user grow and understand themselves better. Be empathetic, insightful, and supportive.`
                     },
                     ...messages
                 ],
@@ -216,7 +222,7 @@ class ChatService {
                 headers: {
                     'Authorization': `Bearer ${this.OPENROUTER_API_KEY}`,
                     'Content-Type': 'application/json',
-                    'X-Title': 'Persona AI Assistant'
+                    'X-Title': 'Persona Assistant'
                 }
             });
             return response.data.choices[0].message.content;

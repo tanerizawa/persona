@@ -4,7 +4,6 @@ import 'package:injectable/injectable.dart';
 import 'package:flutter/foundation.dart';
 
 import '../constants/app_constants.dart';
-import '../config/environment_config.dart';
 
 @singleton
 class ApiClient {

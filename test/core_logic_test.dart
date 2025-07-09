@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Persona AI - Core Logic Tests', () {
+  group('Persona - Core Logic Tests', () {
     group('Crisis Detection', () {
       test('should detect critical crisis keywords', () {
         final criticalKeywords = [

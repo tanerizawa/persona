@@ -38,6 +38,10 @@ export class ProductionAuthService {
       
       // Generate verification token
       const verificationToken = crypto.randomBytes(32).toString('hex');
+      
+      // Auto-activate for development environment
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      const accountStatus = isDevelopment ? 'active' : 'pending';
 
       // Create user
       const user = await prisma.user.create({
@@ -46,13 +50,13 @@ export class ProductionAuthService {
           passwordHash,
           displayName: name,
           verificationToken,
-          accountStatus: 'pending'
+          accountStatus
         }
       });
 
       // Generate tokens
       const accessToken = this.generateAccessToken(user.id, user.email);
-      const refreshToken = this.generateRefreshToken(user.id, user.email);
+      const refreshToken = this.generateRefreshToken(user.id, user.email, deviceId);
 
       // Create session
       await this.createSession(user.id, deviceId, accessToken, refreshToken, deviceInfo);
@@ -115,6 +119,16 @@ export class ProductionAuthService {
         throw new ApiError(403, 'Akun Anda telah dinonaktifkan');
       }
 
+      // Auto-activate pending accounts for development/testing
+      if (user.accountStatus === 'pending') {
+        console.log('🔓 Auto-activating pending account for development:', user.id);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { accountStatus: 'active' }
+        });
+        await this.logSecurityEvent(user.id, 'account_activated', 'low', 'Account auto-activated on login');
+      }
+
       // Reset failed attempts on successful login
       if (user.failedLoginAttempts > 0) {
         await prisma.user.update({
@@ -134,7 +148,7 @@ export class ProductionAuthService {
 
       // Generate tokens
       const accessToken = this.generateAccessToken(user.id, user.email);
-      const refreshToken = this.generateRefreshToken(user.id, user.email);
+      const refreshToken = this.generateRefreshToken(user.id, user.email, deviceId);
 
       // Create/update session
       await this.createSession(user.id, deviceId, accessToken, refreshToken, deviceInfo);
@@ -153,55 +167,134 @@ export class ProductionAuthService {
     }
   }
 
-  static async refreshToken(refreshToken: string): Promise<{
+  static async refreshToken(refreshToken: string, deviceId?: string): Promise<{
     accessToken: string;
     refreshToken: string;
   }> {
     try {
       // Verify refresh token
-      const decoded = jwt.verify(refreshToken, this.JWT_SECRET) as JwtPayload;
+      const decoded = jwt.verify(refreshToken, this.JWT_SECRET) as JwtPayload & { 
+        id: string; 
+        email: string; 
+        deviceId?: string; 
+        userId?: string 
+      };
+      console.log('🔄 [RefreshToken] JWT decoded:', { 
+        userId: decoded.id, 
+        email: decoded.email, 
+        jwtDeviceId: decoded.deviceId 
+      });
       
-      // Find session
+      const tokenHash = this.hashToken(refreshToken);
+      console.log('🔑 [RefreshToken] Token hash:', tokenHash.substring(0, 16) + '...');
+      
+      // Validate deviceId if provided in request body or JWT
+      const expectedDeviceId = deviceId || decoded.deviceId;
+      if (expectedDeviceId) {
+        console.log('🔒 [RefreshToken] Device ID validation:', { 
+          requestDeviceId: deviceId, 
+          jwtDeviceId: decoded.deviceId, 
+          expectedDeviceId 
+        });
+      }
+      
+      // Build session query with deviceId validation if available
+      const sessionQuery: any = {
+        userId: decoded.id, // JWT contains 'id' field, but DB stores as 'userId'
+        refreshTokenHash: tokenHash,
+        isActive: true,
+        expiresAt: { gte: new Date() }
+      };
+      
+      // Add deviceId to query if available for additional security
+      if (expectedDeviceId) {
+        sessionQuery.deviceId = expectedDeviceId;
+      }
+      
+      // Find session using correct field name from JWT (id, not userId)
       const session = await prisma.userSession.findFirst({
-        where: {
-          userId: decoded.userId,
-          refreshTokenHash: this.hashToken(refreshToken),
-          isActive: true,
-          expiresAt: { gte: new Date() }
-        },
+        where: sessionQuery,
         include: { user: true }
       });
 
       if (!session) {
+        console.log('🚨 [RefreshToken] Session not found. Debug info:');
+        console.log('   - Looking for userId:', decoded.id);
+        console.log('   - Token hash:', tokenHash.substring(0, 16) + '...');
+        
+        // Debug: Check all sessions for this user
+        const allSessions = await prisma.userSession.findMany({
+          where: { userId: decoded.id },
+          select: {
+            id: true,
+            deviceId: true,
+            isActive: true,
+            expiresAt: true,
+            refreshTokenHash: true,
+            lastActive: true,
+            createdAt: true
+          }
+        });
+        
+        console.log('🔍 [RefreshToken] All sessions for user:', allSessions.map(s => ({
+          id: s.id,
+          deviceId: s.deviceId,
+          isActive: s.isActive,
+          expired: s.expiresAt < new Date(),
+          tokenHashMatch: s.refreshTokenHash === tokenHash,
+          actualHash: s.refreshTokenHash.substring(0, 16) + '...',
+          expectedHash: tokenHash.substring(0, 16) + '...',
+          lastActive: s.lastActive,
+          createdAt: s.createdAt
+        })));
+        
         throw new ApiError(401, 'Refresh token tidak valid');
       }
 
-      // Check user status
-      if (session.user.accountStatus !== 'active') {
+      // Check user status - allow both active and pending for development
+      if (session.user.accountStatus === 'suspended') {
+        throw new ApiError(403, 'Akun telah dinonaktifkan');
+      }
+      
+      if (session.user.accountStatus !== 'active' && session.user.accountStatus !== 'pending') {
         throw new ApiError(403, 'Akun tidak aktif');
       }
 
       // Generate new tokens
       const newAccessToken = this.generateAccessToken(session.userId, session.user.email);
-      const newRefreshToken = this.generateRefreshToken(session.userId, session.user.email);
+      const newRefreshToken = this.generateRefreshToken(session.userId, session.user.email, session.deviceId);
 
-      // Update session
-      await prisma.userSession.update({
-        where: { id: session.id },
-        data: {
-          accessTokenHash: this.hashToken(newAccessToken),
-          refreshTokenHash: this.hashToken(newRefreshToken),
-          lastActive: new Date()
-        }
+      console.log('🔄 [RefreshToken] Updating session with new tokens');
+
+      // Update session with transaction to prevent race condition
+      await prisma.$transaction(async (tx) => {
+        await tx.userSession.update({
+          where: { id: session.id },
+          data: {
+            accessTokenHash: this.hashToken(newAccessToken),
+            refreshTokenHash: this.hashToken(newRefreshToken),
+            lastActive: new Date()
+          }
+        });
       });
+
+      console.log('✅ [RefreshToken] Token refresh completed successfully');
 
       return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken
       };
     } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(401, 'Token tidak valid');
+      if (error instanceof jwt.JsonWebTokenError) {
+        console.log('🚨 [RefreshToken] JWT Error:', error.message);
+        throw new ApiError(401, 'Token tidak valid');
+      }
+      if (error instanceof ApiError) {
+        console.log('🚨 [RefreshToken] Known error:', error.message);
+        throw error;
+      }
+      console.error('🚨 [RefreshToken] Unexpected error:', error);
+      throw new ApiError(500, 'Internal server error');
     }
   }
 
@@ -380,13 +473,17 @@ export class ProductionAuthService {
     return jwt.sign({ id: userId, email, type: 'access' }, jwtSecret, options);
   }
 
-  private static generateRefreshToken(userId: string, email?: string): string {
+  private static generateRefreshToken(userId: string, email?: string, deviceId?: string): string {
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       throw new Error('JWT_SECRET environment variable is not set');
     }
+    const payload: any = { id: userId, type: 'refresh' };
+    if (email) payload.email = email;
+    if (deviceId) payload.deviceId = deviceId;
+    
     const options: SignOptions = { expiresIn: this.JWT_REFRESH_EXPIRES_IN as any };
-    return jwt.sign({ id: userId, email, type: 'refresh' }, jwtSecret, options);
+    return jwt.sign(payload, jwtSecret, options);
   }
 
   private static hashToken(token: string): string {
@@ -403,24 +500,32 @@ export class ProductionAuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    // Use upsert to handle existing sessions
-    await prisma.userSession.upsert({
+    console.log('🔐 [CreateSession] Creating session for user:', userId, 'device:', deviceId);
+
+    // Clean up old sessions for this user-device combination first
+    await prisma.userSession.deleteMany({
       where: {
-        userId_deviceId: {
-          userId,
-          deviceId
-        }
-      },
-      update: {
-        accessTokenHash: this.hashToken(accessToken),
-        refreshTokenHash: this.hashToken(refreshToken),
-        expiresAt,
-        ipAddress: deviceInfo?.ipAddress,
-        userAgent: deviceInfo?.userAgent,
-        isActive: true,
-        lastActive: new Date()
-      },
-      create: {
+        userId,
+        deviceId,
+        isActive: true
+      }
+    });
+
+    console.log('🧹 [CreateSession] Cleaned up old sessions for device:', deviceId);
+
+    // Also clean up any expired sessions for this user
+    await prisma.userSession.deleteMany({
+      where: {
+        userId,
+        expiresAt: { lt: new Date() }
+      }
+    });
+
+    console.log('🗑️ [CreateSession] Cleaned up expired sessions for user:', userId);
+
+    // Create new session
+    const session = await prisma.userSession.create({
+      data: {
         userId,
         deviceId,
         deviceName: deviceInfo?.deviceName,
@@ -432,6 +537,8 @@ export class ProductionAuthService {
         userAgent: deviceInfo?.userAgent
       }
     });
+
+    console.log('✅ [CreateSession] Created new session:', session.id);
   }
 
   private static async handleFailedLogin(userId: string, ipAddress?: string): Promise<void> {
@@ -452,6 +559,46 @@ export class ProductionAuthService {
       where: { id: userId },
       data: updates
     });
+  }
+
+  static async cleanupUserSessions(userId: string): Promise<void> {
+    try {
+      console.log('🧹 [CleanupSessions] Starting cleanup for user:', userId);
+      
+      // Delete all expired sessions
+      const expiredCount = await prisma.userSession.deleteMany({
+        where: {
+          userId,
+          expiresAt: { lt: new Date() }
+        }
+      });
+
+      console.log('🗑️ [CleanupSessions] Deleted expired sessions:', expiredCount.count);
+
+      // Keep only the most recent 2 active sessions per user
+      const allSessions = await prisma.userSession.findMany({
+        where: { userId, isActive: true },
+        orderBy: { lastActive: 'desc' }
+      });
+
+      if (allSessions.length > 2) {
+        const sessionsToDelete = allSessions.slice(2);
+        const deleteIds = sessionsToDelete.map(s => s.id);
+        
+        const oldCount = await prisma.userSession.deleteMany({
+          where: {
+            id: { in: deleteIds }
+          }
+        });
+
+        console.log('🚮 [CleanupSessions] Deleted old sessions:', oldCount.count);
+      }
+
+      console.log('✅ [CleanupSessions] Cleanup completed for user:', userId);
+    } catch (error) {
+      console.error('🚨 [CleanupSessions] Error:', error);
+      throw error;
+    }
   }
 
   private static async logSecurityEvent(

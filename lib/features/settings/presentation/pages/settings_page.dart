@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/widgets/user_management_test_widget.dart';
 import '../widgets/sync_status_widget.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -45,6 +46,11 @@ class _SettingsPageState extends State<SettingsPage> {
             
             // Little Brain Settings
             _buildLittleBrainSettings(context),
+            
+            const SizedBox(height: AppConstants.largePadding),
+            
+            // User Management Test (Development Only)
+            _buildUserManagementTest(context),
             
             const SizedBox(height: AppConstants.largePadding),
             
@@ -323,6 +329,60 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () {
                 _showResetDialog();
               },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserManagementTest(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppConstants.defaultPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Symbols.manage_accounts,
+                  color: Theme.of(context).primaryColor,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'User Management Test',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Test the user data clearing functionality when switching accounts or logging out.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const UserManagementTestWidget(),
+                    ),
+                  );
+                },
+                icon: const Icon(Symbols.bug_report),
+                label: const Text('Open User Management Test'),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.blue,
+                ),
+              ),
             ),
           ],
         ),

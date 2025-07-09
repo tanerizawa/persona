@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Persona AI Backend Integration Test Script
+# Persona Backend Integration Test Script
 # This script tests the complete authentication flow
 
-echo "🚀 PERSONA AI BACKEND INTEGRATION TEST"
+echo "🚀 Persona BACKEND INTEGRATION TEST"
 echo "======================================="
 
 # Configuration

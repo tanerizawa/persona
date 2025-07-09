@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../../../core/injection/injection.dart';
+import '../../../../../injection_container.dart';
 import '../../../little_brain/domain/repositories/little_brain_repository.dart';
 
 class LifeTreeWidget extends StatefulWidget {
