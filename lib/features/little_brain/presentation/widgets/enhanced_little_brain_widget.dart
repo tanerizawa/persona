@@ -15,7 +15,6 @@ class EnhancedLittleBrainWidget extends StatefulWidget {
 
 class _EnhancedLittleBrainWidgetState extends State<EnhancedLittleBrainWidget> 
     with TickerProviderStateMixin {
-  SyncResult? _syncResult;
   SyncStatus? _syncStatus;
   bool _isLoading = false;
   PersonalityProfile? _personalityProfile;

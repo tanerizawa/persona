@@ -20,7 +20,12 @@
   "devDependencies": {
     "nodemon": "^2.0.22"
   },
-  "keywords": ["local-first", "sync", "persona", "minimal"],
+  "keywords": [
+    "local-first",
+    "sync",
+    "persona",
+    "minimal"
+  ],
   "author": "Persona Team",
   "license": "MIT"
 }

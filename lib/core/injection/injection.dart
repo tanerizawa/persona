@@ -51,19 +51,19 @@ Future<void> _registerCoreServices() async {
   getIt.registerSingleton<SecureStorageService>(SecureStorageService.instance);
   getIt.registerSingleton<BiometricAuthService>(BiometricAuthService.instance);
   getIt.registerSingleton<UserSessionService>(
-    UserSessionService(getIt<SecureStorageService>())
+    UserSessionService(getIt<SecureStorageService>()),
   );
-  
+
   // Register API client
   final apiClient = ApiClient();
   getIt.registerSingleton<ApiClient>(apiClient);
   getIt.registerSingleton<Dio>(apiClient.dio);
-  
+
   // Register OpenRouter API service
   getIt.registerSingleton<OpenRouterApiService>(
     OpenRouterApiService(apiClient.dio),
   );
-  
+
   // Register Backend API service with dependencies
   getIt.registerSingleton<BackendApiService>(
     BackendApiService(
@@ -74,11 +74,9 @@ Future<void> _registerCoreServices() async {
       PerformanceService(),
     ),
   );
-  
+
   // Register Chat local data source (needed for ClearUserDataUseCase)
-  getIt.registerSingleton<ChatLocalDataSource>(
-    ChatLocalDataSourceImpl(),
-  );
+  getIt.registerSingleton<ChatLocalDataSource>(ChatLocalDataSourceImpl());
 }
 
 // Register Little Brain local-first services
@@ -89,16 +87,20 @@ Future<void> _registerLittleBrainServices() async {
   getIt.registerSingleton<LittleBrainRepository>(
     LittleBrainLocalRepository(localAI),
   );
-  
+
   // Register use cases that depend on LittleBrainLocalRepository
   getIt.registerSingleton<AddMemoryLocalUseCase>(
-    AddMemoryLocalUseCase(getIt<LittleBrainRepository>() as LittleBrainLocalRepository),
+    AddMemoryLocalUseCase(
+      getIt<LittleBrainRepository>() as LittleBrainLocalRepository,
+    ),
   );
-  
+
   getIt.registerSingleton<ClearAllLocalDataUseCase>(
-    ClearAllLocalDataUseCase(getIt<LittleBrainRepository>() as LittleBrainLocalRepository),
+    ClearAllLocalDataUseCase(
+      getIt<LittleBrainRepository>() as LittleBrainLocalRepository,
+    ),
   );
-  
+
   // Register ClearUserDataUseCase (after all dependencies are available)
   getIt.registerSingleton<ClearUserDataUseCase>(
     ClearUserDataUseCase(
@@ -108,7 +110,7 @@ Future<void> _registerLittleBrainServices() async {
       getIt<ClearAllLocalDataUseCase>(),
     ),
   );
-  
+
   // Register Auth BLoC with correct constructor parameters
   getIt.registerFactory<AuthBloc>(
     () => AuthBloc(
@@ -119,15 +121,15 @@ Future<void> _registerLittleBrainServices() async {
       getIt<UserSessionService>(),
     ),
   );
-  
+
   getIt.registerSingleton<MoodTrackingUseCases>(
     MoodTrackingUseCases(getIt<LittleBrainRepository>()),
   );
-  
+
   getIt.registerSingleton<PsychologyTestingUseCases>(
     PsychologyTestingUseCases(getIt<LittleBrainRepository>()),
   );
-  
+
   // Register HomeContentUseCases (depends on multiple services)
   getIt.registerSingleton<HomeContentUseCases>(
     HomeContentUseCases(
@@ -137,18 +139,18 @@ Future<void> _registerLittleBrainServices() async {
       getIt<OpenRouterApiService>(),
     ),
   );
-  
+
   // Register Chat services with simple mock repository for now
   getIt.registerSingleton<ChatRepository>(_SimpleChatRepository());
-  
+
   getIt.registerSingleton<SendMessageUseCase>(
     SendMessageUseCase(getIt<ChatRepository>()),
   );
-  
+
   getIt.registerSingleton<GetConversationHistoryUseCase>(
     GetConversationHistoryUseCase(getIt<ChatRepository>()),
   );
-  
+
   getIt.registerFactory<ChatBloc>(
     () => ChatBloc(
       sendMessageUseCase: getIt<SendMessageUseCase>(),
@@ -162,13 +164,14 @@ Future<void> _registerLittleBrainServices() async {
 class _SimpleChatRepository implements ChatRepository {
   @override
   Future<Either<Failure, Message>> sendMessage(
-    String content, 
+    String content,
     List<Message> conversationHistory,
   ) async {
     // Simple mock response
     final message = Message(
       id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
-      content: 'Hello! This is a temporary response. The full chat system will be implemented soon.',
+      content:
+          'Hello! This is a temporary response. The full chat system will be implemented soon.',
       role: MessageRole.assistant,
       timestamp: DateTime.now(),
     );

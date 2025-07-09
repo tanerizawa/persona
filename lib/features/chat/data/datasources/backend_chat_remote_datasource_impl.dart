@@ -13,11 +13,7 @@ class BackendChatRequest {
   final String? conversationId;
   final String? model;
 
-  BackendChatRequest({
-    required this.message,
-    this.conversationId,
-    this.model,
-  });
+  BackendChatRequest({required this.message, this.conversationId, this.model});
 
   Map<String, dynamic> toJson() {
     return {
@@ -33,17 +29,15 @@ class BackendChatResponse {
   final BackendChatResponseData? data;
   final String? error;
 
-  BackendChatResponse({
-    required this.success,
-    this.data,
-    this.error,
-  });
+  BackendChatResponse({required this.success, this.data, this.error});
 
   factory BackendChatResponse.fromJson(Map<String, dynamic> json) {
     return BackendChatResponse(
       success: json['success'] as bool,
       data: json['data'] != null
-          ? BackendChatResponseData.fromJson(json['data'] as Map<String, dynamic>)
+          ? BackendChatResponseData.fromJson(
+              json['data'] as Map<String, dynamic>,
+            )
           : null,
       error: json['error'] as String?,
     );
@@ -78,7 +72,8 @@ class BackendChatRemoteDataSourceImpl implements ChatRemoteDataSource {
   BackendChatRemoteDataSourceImpl({
     required BackendApiService backendApiService,
     required Uuid uuid,
-  }) : _backendApiService = backendApiService, _uuid = uuid;
+  }) : _backendApiService = backendApiService,
+       _uuid = uuid;
 
   @override
   Future<MessageModel> sendMessage(
@@ -106,7 +101,9 @@ class BackendChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       final chatResponse = BackendChatResponse.fromJson(response.data);
 
       if (!chatResponse.success || chatResponse.data == null) {
-        throw ServerException(chatResponse.error ?? 'Unknown error from backend');
+        throw ServerException(
+          chatResponse.error ?? 'Unknown error from backend',
+        );
       }
 
       // Create a message model from the response
@@ -124,7 +121,8 @@ class BackendChatRemoteDataSourceImpl implements ChatRemoteDataSource {
         throw ServerException('Authentication required. Please log in again.');
       }
       throw ServerException(
-        e.response?.data?['error'] ?? 'Failed to communicate with AI service: ${e.message}',
+        e.response?.data?['error'] ??
+            'Failed to communicate with AI service: ${e.message}',
       );
     } catch (e) {
       throw ServerException('An unexpected error occurred: $e');
@@ -142,7 +140,8 @@ class BackendChatRemoteDataSourceImpl implements ChatRemoteDataSource {
       return messages.map((json) => MessageModel.fromJson(json)).toList();
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data?['error'] ?? 'Failed to sync conversation from server: ${e.message}',
+        e.response?.data?['error'] ??
+            'Failed to sync conversation from server: ${e.message}',
       );
     } catch (e) {
       throw ServerException('An unexpected error occurred during sync: $e');
@@ -154,13 +153,12 @@ class BackendChatRemoteDataSourceImpl implements ChatRemoteDataSource {
     try {
       await _backendApiService.dio.post(
         '${AppConstants.backendBaseUrl}/api/chat/sync',
-        data: {
-          'messages': messages.map((m) => m.toJson()).toList(),
-        },
+        data: {'messages': messages.map((m) => m.toJson()).toList()},
       );
     } on DioException catch (e) {
       throw ServerException(
-        e.response?.data?['error'] ?? 'Failed to sync conversation to server: ${e.message}',
+        e.response?.data?['error'] ??
+            'Failed to sync conversation to server: ${e.message}',
       );
     } catch (e) {
       throw ServerException('An unexpected error occurred during sync: $e');
