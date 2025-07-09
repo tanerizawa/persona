@@ -116,6 +116,7 @@ Future<void> _registerLittleBrainServices() async {
       getIt<SecureStorageService>(),
       getIt<BiometricAuthService>(),
       getIt<ClearUserDataUseCase>(),
+      getIt<UserSessionService>(),
     ),
   );
   
@@ -152,6 +153,7 @@ Future<void> _registerLittleBrainServices() async {
     () => ChatBloc(
       sendMessageUseCase: getIt<SendMessageUseCase>(),
       getConversationHistoryUseCase: getIt<GetConversationHistoryUseCase>(),
+      userSessionService: getIt<UserSessionService>(),
     ),
   );
 }
